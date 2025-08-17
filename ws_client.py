@@ -262,3 +262,7 @@ def demo_run(duration_seconds: float = 10.0) -> None:
         ws.close()
 
 
+
+if __name__ == "__main__":
+    print("Running HLWebSocketClient demo...")
+    demo_run(10.0)
