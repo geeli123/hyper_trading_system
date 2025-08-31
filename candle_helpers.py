@@ -75,7 +75,6 @@ def aggregate_ohlcv(
     current_aggregated_candle.num_trades += new_candle.num_trades
 
     is_completed = new_candle.end_time >= current_aggregated_candle.end_time
-
     return (
         is_completed,
         current_aggregated_candle
