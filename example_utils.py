@@ -2,6 +2,8 @@ import getpass
 import json
 import os
 
+from config import load_config
+
 import eth_account
 from eth_account.signers.local import LocalAccount
 
@@ -9,12 +11,15 @@ from hyperliquid.exchange import Exchange
 from hyperliquid.info import Info
 
 
-def setup(base_url=None, skip_ws=False, perp_dexs=None):
-    config_path = os.path.join(os.path.dirname(__file__), "config.json")
-    with open(config_path) as f:
-        config = json.load(f)
+def setup(base_url=None, skip_ws=False, perp_dexs=None, environment=None):
+    # Load configuration
+    config = load_config(environment)
+    
+    # Use config's base_url if not provided as parameter
+    if base_url is None:
+        base_url = config.get('base_url')
     account: LocalAccount = eth_account.Account.from_key(get_secret_key(config))
-    address = config["account_address"]
+    address = config['account_address']
     if address == "":
         address = account.address
     print("Running with account address:", address)
@@ -35,10 +40,10 @@ def setup(base_url=None, skip_ws=False, perp_dexs=None):
 
 
 def get_secret_key(config):
-    if config["secret_key"]:
-        secret_key = config["secret_key"]
+    if config['secret_key']:
+        secret_key = config['secret_key']
     else:
-        keystore_path = config["keystore_path"]
+        keystore_path = config['keystore_path']
         keystore_path = os.path.expanduser(keystore_path)
         if not os.path.isabs(keystore_path):
             keystore_path = os.path.join(os.path.dirname(__file__), keystore_path)
@@ -53,17 +58,12 @@ def get_secret_key(config):
     return secret_key
 
 
-def setup_multi_sig_wallets():
-    config_path = os.path.join(os.path.dirname(__file__), "config.json")
-    with open(config_path) as f:
-        config = json.load(f)
+def setup_multi_sig_wallets(environment=None):
+    # Load configuration
+    config = load_config(environment)
 
+    # Multi-sig functionality removed from basic config structure
+    # This would need to be implemented separately if needed
     authorized_user_wallets = []
-    for wallet_config in config["multi_sig"]["authorized_users"]:
-        account: LocalAccount = eth_account.Account.from_key(wallet_config["secret_key"])
-        address = wallet_config["account_address"]
-        if account.address != address:
-            raise Exception(f"provided authorized user address {address} does not match private key")
-        print("loaded authorized user for multi-sig", address)
-        authorized_user_wallets.append(account)
+    print("Multi-sig functionality not implemented in current config structure")
     return authorized_user_wallets

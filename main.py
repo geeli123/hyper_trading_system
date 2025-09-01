@@ -1,9 +1,8 @@
 import logging
+from config import load_config
 from hyperliquid.info import Info  
 from hyperliquid.exchange import Exchange
-from hyperliquid.info import Info
 import example_utils
-from hyperliquid.utils import constants
 import datetime as dt
 import pprint
 
@@ -17,9 +16,21 @@ def callback(msg):
     logger.debug("callback")
     logger.debug(f"Received: {msg}")  
 
+# Set environment: 'mainnet' or 'testnet' (or None for default)
+ENVIRONMENT = 'mainnet'
+config = load_config(ENVIRONMENT)
 
-address, info, exchange = example_utils.setup(base_url=constants.TESTNET_API_URL, skip_ws=False)
-pprint.pprint(info.user_state("0xB6001dDB4ecf684A226361812476f731CEA96d05"))
+# Print config in green color
+GREEN = "\033[92m"
+RESET = "\033[0m"
+logger.info(f"{GREEN}Loaded config for environment '{ENVIRONMENT}':{RESET}")
+for k, v in config.items():
+    logger.info(f"{GREEN}  {k}: {v}{RESET}")
+
+address, info, exchange = example_utils.setup(skip_ws=False, environment=ENVIRONMENT)
+
+
+pprint.pprint(info.user_state(config.account_address))
 
 strategy = MeanReversionBB(exchange, info, address, "ETH")
 

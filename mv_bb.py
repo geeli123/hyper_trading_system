@@ -29,7 +29,7 @@ class MeanReversionBB:
             info: Info,
             address: str,
             symbol: str,
-            trade_size_usd: float = 10.0,
+            trade_size_usd: float = 5.0,
             ma_lookback_periods=20,
             bb_std_dev=2.5,
             stop_loss_multiplier=0.5,
@@ -110,7 +110,8 @@ class MeanReversionBB:
         self.order_system.cancel_all_orders(self.symbol)
 
         positions = self.order_system.get_position("ETH")
-        if positions['size'] == 0:
+        print("show positions", positions)
+        if positions is None or positions['size'] == 0:
             self.strategy_state = MVBBState.NEUTRAL
         elif positions['side'] == 'long':
             self.strategy_state = MVBBState.LONG
