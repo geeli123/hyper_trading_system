@@ -11,6 +11,7 @@ from indicators import BollingerBands
 from order_system import BasicOrderSystem
 from utils import round_values
 
+import logging
 
 class MVBBState(Enum):
     NEUTRAL = 1
@@ -29,7 +30,7 @@ class MeanReversionBB:
             info: Info,
             address: str,
             symbol: str,
-            trade_size_usd: float = 5.0,
+            trade_size_usd: float = 12.0,
             ma_lookback_periods=20,
             bb_std_dev=2.5,
             stop_loss_multiplier=0.5,
@@ -121,14 +122,16 @@ class MeanReversionBB:
         self.order_system.cancel_all_orders(self.symbol)
 
         if self.strategy_state == MVBBState.NEUTRAL:
-            self.hl_exchange.order(
+            logging.info("Strategy state is NEUTRAL. Placing initial limit orders at Bollinger Bands.")
+            result = self.hl_exchange.order(
                 name=self.symbol,
                 is_buy=True,
                 sz=round_values(self.trade_size_usd / self.bollinger_bands.lower_band, self.max_decimals_sz),
                 limit_px=round_values(self.bollinger_bands.lower_band, self.max_decimals_px),
                 order_type={"limit": {"tif": "Gtc"}},
             )
-            self.hl_exchange.order(
+            logging.info(f"Initial long order result: {result}")
+            result = self.hl_exchange.order(
                 name=self.symbol,
                 is_buy=False,
                 sz=round_values(self.trade_size_usd / self.bollinger_bands.upper_band, self.max_decimals_sz),
