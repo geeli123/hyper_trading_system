@@ -1,3 +1,4 @@
+from copy import copy
 from enum import Enum
 import datetime as dt
 
@@ -7,6 +8,7 @@ from hyperliquid.exchange import Exchange
 from candle_helpers import aggregate_ohlcv
 from events import OHLCVEvent, FillEvent
 from indicators import BollingerBands
+from order_system import BasicOrderSystem
 from utils import round_values
 
 
@@ -27,7 +29,7 @@ class MeanReversionBB:
             info: Info,
             address: str,
             symbol: str,
-            trade_size_usd: float = 1.0,
+            trade_size_usd: float = 10.0,
             ma_lookback_periods=20,
             bb_std_dev=2.5,
             stop_loss_multiplier=0.5,
@@ -36,16 +38,20 @@ class MeanReversionBB:
             input_candle_unit: str = "m",
             target_candle_periods: int = 1,
             target_candle_unit: str = "h",
-            max_decimals: int = 2,
+            max_decimals_sz: int = 4,
+            max_decimals_px: int = 1,
     ):
         self.hl_info = info
         self.hl_exchange = exchange
         self.address = address
-        self.max_decimals = max_decimals
+        self.max_decimals_sz = max_decimals_sz
+        self.max_decimals_px = max_decimals_px
+        self.order_system = BasicOrderSystem(self.hl_info, self.hl_exchange, self.address)
 
         self.symbol = symbol
         self.bollinger_bands = BollingerBands(ma_lookback_periods, bb_std_dev)
         self.current_candle = None
+        self.last_full_candle = None
         self.latest_candle_watermark = dt.datetime(1970, 1, 1)
 
         self.trade_size_usd = trade_size_usd
@@ -74,6 +80,9 @@ class MeanReversionBB:
             "bb_lower": self.bollinger_bands.lower_band,
         }
 
+    def _get_current_asset_quantity(self):
+        return self.order_system.get_position(self.symbol)['size']
+
     def _start_up(self):
         startup_candles = self.hl_info.candles_snapshot(
             self.symbol,
@@ -93,30 +102,138 @@ class MeanReversionBB:
 
             if is_complete:
                 self.bollinger_bands.update(self.current_candle.close)
+                self.last_full_candle = copy(self.current_candle)
         self.startup_complete = True
         print("Startup complete. Bollinger Bands initialized.")
         print(f"Current Bollinger Bands: {self.bollinger_bands.bands}")
         print(f"Latest message: {self.latest_candle_watermark}")
-        self._cancel_all_open_orders()
+        self.order_system.cancel_all_orders(self.symbol)
 
-    def _cancel_all_open_orders(self):
-        open_orders = self.hl_info.open_orders(self.address)
-        for open_order in open_orders:
-            print(f"cancelling order {open_order}")
-            self.hl_exchange.cancel(open_order["coin"], open_order["oid"])
+        positions = self.order_system.get_position("ETH")
+        if positions['size'] == 0:
+            self.strategy_state = MVBBState.NEUTRAL
+        elif positions['side'] == 'long':
+            self.strategy_state = MVBBState.LONG
+        elif positions['side'] == 'short':
+            self.strategy_state = MVBBState.SHORT
 
-    def _get_current_asset_quantity(self):
-        us = self.hl_info.user_state(self.address)
-        for asset in us["positions"][0]:
-            if asset["position"]["coin"] == self.symbol:
-                return asset["position"]["szi"]
-        return 0
+        self.order_system.cancel_all_orders(self.symbol)
+
+        if self.strategy_state == MVBBState.NEUTRAL:
+            self.hl_exchange.order(
+                name=self.symbol,
+                is_buy=True,
+                sz=round_values(self.trade_size_usd / self.bollinger_bands.lower_band, self.max_decimals_sz),
+                limit_px=round_values(self.bollinger_bands.lower_band, self.max_decimals_px),
+                order_type={"limit": {"tif": "Gtc"}},
+            )
+            self.hl_exchange.order(
+                name=self.symbol,
+                is_buy=False,
+                sz=round_values(self.trade_size_usd / self.bollinger_bands.upper_band, self.max_decimals_sz),
+                limit_px=round_values(self.bollinger_bands.upper_band, self.max_decimals_px),
+                order_type={"limit": {"tif": "Gtc"}},
+            )
+        elif self.strategy_state == MVBBState.LONG:
+            bb_range_half = (-self.bollinger_bands.lower_band + self.bollinger_bands.middle_band)
+            self.order_system.cancel_all_orders(self.symbol)
+
+            # Place a stop order
+            stop_order_type = {
+                "trigger": {
+                    "triggerPx": round_values(
+                        self.bollinger_bands.lower_band - (bb_range_half * self.stop_loss_multiplier),
+                        self.max_decimals_px
+                    ),
+                    "isMarket": True,
+                    "tpsl": "sl"
+                }
+            }
+            self.hl_exchange.order(
+                name=self.symbol,
+                is_buy=False,
+                sz=self._get_current_asset_quantity(),
+                limit_px=round_values(
+                    self.bollinger_bands.lower_band - (bb_range_half * self.stop_loss_multiplier),
+                    self.max_decimals_px
+                ),
+                order_type=stop_order_type,
+            )
+
+            # Place a tp order
+            tp_order_type = {
+                "trigger": {
+                    "triggerPx": round_values(
+                        self.bollinger_bands.lower_band + (bb_range_half * self.take_profit_multiplier),
+                        self.max_decimals_px
+                    ),
+                    "isMarket": True,
+                    "tpsl": "tp"
+                }
+            }
+            self.hl_exchange.order(
+                name=self.symbol,
+                is_buy=False,
+                sz=self._get_current_asset_quantity(),
+                limit_px=round_values(
+                    self.bollinger_bands.lower_band + (bb_range_half * self.take_profit_multiplier),
+                    self.max_decimals_px
+                ),
+                order_type=tp_order_type,
+            )
+
+        # handle case where we are short - set limit / stop loss orders
+        elif self.strategy_state == MVBBState.SHORT:
+            bb_range_half = (self.bollinger_bands.upper_band - self.bollinger_bands.middle_band)
+
+            self.order_system.cancel_all_orders(self.symbol)
+
+            # Place a stop order
+            stop_order_type = {
+                "trigger": {
+                    "triggerPx": round_values(
+                        self.bollinger_bands.upper_band + (bb_range_half * self.stop_loss_multiplier),
+                        self.max_decimals_px
+                    ),
+                    "isMarket": True,
+                    "tpsl": "sl"
+                }
+            }
+            self.hl_exchange.order(
+                name=self.symbol,
+                is_buy=True,
+                sz=self._get_current_asset_quantity(),
+                limit_px=round_values(
+                    self.bollinger_bands.upper_band + (bb_range_half * self.stop_loss_multiplier),
+                    self.max_decimals_px),
+                order_type=stop_order_type,
+            )
+
+            # Place a tp order
+            tp_order_type = {
+                "trigger": {
+                    "triggerPx": round_values(
+                        self.bollinger_bands.upper_band - (bb_range_half * self.take_profit_multiplier)
+                    ),
+                    "isMarket": True,
+                    "tpsl": "tp"
+                }
+            }
+            self.hl_exchange.order(
+                name=self.symbol,
+                is_buy=True,
+                sz=self._get_current_asset_quantity(),
+                limit_px=round_values(
+                    self.bollinger_bands.upper_band - (bb_range_half * self.take_profit_multiplier),
+                    self.max_decimals_px),
+                order_type=tp_order_type,
+        )
 
     def process_message(self, message: dict):
         """
         Processes a new market event.
         """
-        print(message)
+        print(self.order_system.get_open_orders(self.symbol))
         if message['channel'] == 'candle':
             event = OHLCVEvent.from_hyperliquid_message(message['data'])
             if event.start_time <= self.latest_candle_watermark:
@@ -130,6 +247,7 @@ class MeanReversionBB:
                                                                self.target_candle_unit)
 
             if is_complete:
+                print(self.strategy_state)
                 self.bollinger_bands.update(self.current_candle.close)
 
                 if self.bollinger_bands.is_ready:
@@ -138,34 +256,34 @@ class MeanReversionBB:
                 if self.startup_complete:
                     # handle case where we have no open positions - set limit orders
                     if self.strategy_state == MVBBState.NEUTRAL:
-                        self._cancel_all_open_orders()
+                        self.order_system.cancel_all_orders(self.symbol)
 
-                        self.hl_exchange.order(
+                        print(self.hl_exchange.order(
                             name=self.symbol,
                             is_buy=True,
-                            sz=round_values(self.trade_size_usd / self.bollinger_bands.lower_band, self.max_decimals),
-                            limit_px=round_values(self.bollinger_bands.lower_band, self.max_decimals),
+                            sz=round_values(self.trade_size_usd / self.bollinger_bands.lower_band, self.max_decimals_sz),
+                            limit_px=round_values(self.bollinger_bands.lower_band, self.max_decimals_px),
                             order_type={"limit": {"tif": "Gtc"}},
-                        )
-                        self.hl_exchange.order(
+                        ))
+                        print(self.hl_exchange.order(
                             name=self.symbol,
                             is_buy=False,
-                            sz=round_values(self.trade_size_usd / self.bollinger_bands.upper_band, self.max_decimals),
-                            limit_px=round_values(self.bollinger_bands.upper_band, self.max_decimals),
+                            sz=round_values(self.trade_size_usd / self.bollinger_bands.upper_band, self.max_decimals_sz),
+                            limit_px=round_values(self.bollinger_bands.upper_band, self.max_decimals_px),
                             order_type={"limit": {"tif": "Gtc"}},
-                        )
+                        ))
 
                     # handle case where we are long - set limit orders / stop loss orders
                     elif self.strategy_state == MVBBState.LONG:
                         bb_range_half = (-self.bollinger_bands.lower_band + self.bollinger_bands.middle_band)
-                        self._cancel_all_open_orders()
+                        self.order_system.cancel_all_orders(self.symbol)
 
                         # Place a stop order
                         stop_order_type = {
                             "trigger": {
                                 "triggerPx": round_values(
                                     self.bollinger_bands.lower_band - (bb_range_half * self.stop_loss_multiplier),
-                                    self.max_decimals
+                                    self.max_decimals_px
                                 ),
                                 "isMarket": True,
                                 "tpsl": "sl"
@@ -177,7 +295,7 @@ class MeanReversionBB:
                             sz=self._get_current_asset_quantity(),
                             limit_px=round_values(
                                 self.bollinger_bands.lower_band - (bb_range_half * self.stop_loss_multiplier),
-                                self.max_decimals
+                                self.max_decimals_px
                             ),
                             order_type=stop_order_type,
                         )
@@ -187,7 +305,7 @@ class MeanReversionBB:
                             "trigger": {
                                 "triggerPx": round_values(
                                     self.bollinger_bands.lower_band + (bb_range_half * self.take_profit_multiplier),
-                                    self.max_decimals
+                                    self.max_decimals_px
                                 ),
                                 "isMarket": True,
                                 "tpsl": "tp"
@@ -199,7 +317,7 @@ class MeanReversionBB:
                             sz=self._get_current_asset_quantity(),
                             limit_px=round_values(
                                 self.bollinger_bands.lower_band + (bb_range_half * self.take_profit_multiplier),
-                                self.max_decimals
+                                self.max_decimals_px
                             ),
                             order_type=tp_order_type,
                         )
@@ -208,14 +326,14 @@ class MeanReversionBB:
                     elif self.strategy_state == MVBBState.SHORT:
                         bb_range_half = (self.bollinger_bands.upper_band - self.bollinger_bands.middle_band)
 
-                        self._cancel_all_open_orders()
+                        self.order_system.cancel_all_orders(self.symbol)
 
                         # Place a stop order
                         stop_order_type = {
                             "trigger": {
                                 "triggerPx": round_values(
                                     self.bollinger_bands.upper_band + (bb_range_half * self.stop_loss_multiplier),
-                                    self.max_decimals
+                                    self.max_decimals_px
                                 ),
                                 "isMarket": True,
                                 "tpsl": "sl"
@@ -227,7 +345,7 @@ class MeanReversionBB:
                             sz=self._get_current_asset_quantity(),
                             limit_px=round_values(
                                 self.bollinger_bands.upper_band + (bb_range_half * self.stop_loss_multiplier),
-                                self.max_decimals),
+                                self.max_decimals_px),
                             order_type=stop_order_type,
                         )
 
@@ -247,7 +365,7 @@ class MeanReversionBB:
                             sz=self._get_current_asset_quantity(),
                             limit_px=round_values(
                                 self.bollinger_bands.upper_band - (bb_range_half * self.take_profit_multiplier),
-                                self.max_decimals),
+                                self.max_decimals_px),
                             order_type=tp_order_type,
                         )
                     else:
@@ -262,14 +380,14 @@ class MeanReversionBB:
                         self.strategy_state = MVBBState.LONG
 
                         bb_range_half = (-self.bollinger_bands.lower_band + self.bollinger_bands.middle_band)
-                        self._cancel_all_open_orders()
+                        self.order_system.cancel_all_orders(self.symbol)
 
                         # Place a stop order
                         stop_order_type = {
                             "trigger": {
                                 "triggerPx": round_values(
                                     self.bollinger_bands.lower_band - (bb_range_half * self.stop_loss_multiplier),
-                                    self.max_decimals
+                                    self.max_decimals_px
                                 ),
                                 "isMarket": True,
                                 "tpsl": "sl"
@@ -281,7 +399,7 @@ class MeanReversionBB:
                             sz=self._get_current_asset_quantity(),
                             limit_px=round_values(
                                 self.bollinger_bands.lower_band - (bb_range_half * self.stop_loss_multiplier),
-                                self.max_decimals
+                                self.max_decimals_px
                             ),
                             order_type=stop_order_type,
                         )
@@ -291,7 +409,7 @@ class MeanReversionBB:
                             "trigger": {
                                 "triggerPx": round_values(
                                     self.bollinger_bands.lower_band + (bb_range_half * self.take_profit_multiplier),
-                                    self.max_decimals
+                                    self.max_decimals_px
                                 ),
                                 "isMarket": True,
                                 "tpsl": "tp"
@@ -303,7 +421,7 @@ class MeanReversionBB:
                             sz=self._get_current_asset_quantity(),
                             limit_px=round_values(
                                 self.bollinger_bands.lower_band + (bb_range_half * self.take_profit_multiplier),
-                                self.max_decimals
+                                self.max_decimals_px
                             ),
                             order_type=tp_order_type,
                         )
@@ -313,14 +431,14 @@ class MeanReversionBB:
 
                         bb_range_half = (self.bollinger_bands.upper_band - self.bollinger_bands.middle_band)
 
-                        self._cancel_all_open_orders()
+                        self.order_system.cancel_all_orders(self.symbol)
 
                         # Place a stop order
                         stop_order_type = {
                             "trigger": {
                                 "triggerPx": round_values(
                                     self.bollinger_bands.upper_band + (bb_range_half * self.stop_loss_multiplier),
-                                    self.max_decimals
+                                    self.max_decimals_px
                                 ),
                                 "isMarket": True,
                                 "tpsl": "sl"
@@ -332,7 +450,7 @@ class MeanReversionBB:
                             sz=self._get_current_asset_quantity(),
                             limit_px=round_values(
                                 self.bollinger_bands.upper_band + (bb_range_half * self.stop_loss_multiplier),
-                                self.max_decimals),
+                                self.max_decimals_px),
                             order_type=stop_order_type,
                         )
 
@@ -352,7 +470,7 @@ class MeanReversionBB:
                             sz=self._get_current_asset_quantity(),
                             limit_px=round_values(
                                 self.bollinger_bands.upper_band - (bb_range_half * self.take_profit_multiplier),
-                                self.max_decimals),
+                                self.max_decimals_px),
                             order_type=tp_order_type,
                         )
                     else:
@@ -360,11 +478,11 @@ class MeanReversionBB:
                 # if strategy long
                 elif self.strategy_state == MVBBState.LONG:
                     self.strategy_state = MVBBState.NEUTRAL
-                    self._cancel_all_open_orders()
+                    self.order_system.cancel_all_orders(self.symbol)
                 # if strategy short
                 elif self.strategy_state == MVBBState.SHORT:
                     self.strategy_state = MVBBState.NEUTRAL
-                    self._cancel_all_open_orders()
+                    self.order_system.cancel_all_orders(self.symbol)
                 else:
                     raise ValueError(f"Unknown strategy state: {self.strategy_state}")
         else:
