@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from subscription_manager import SubscriptionManager
+from .subscription_manager import SubscriptionManager
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ def create_api_server(sub_manager: SubscriptionManager, info_obj, strategy_obj,
     )
 
     # Include routers
-    from routers import system, subscriptions
+    from .routers import system, subscriptions
     app.include_router(system.router)
     app.include_router(subscriptions.router)
 

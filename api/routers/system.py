@@ -7,7 +7,7 @@ from typing import Dict
 
 from fastapi import APIRouter, HTTPException, Depends
 
-from api_server import SystemStatus, SubscriptionStats, get_subscription_manager, get_info, get_strategy
+from ..api_server import SystemStatus, SubscriptionStats, get_subscription_manager, get_info, get_strategy
 
 logger = logging.getLogger(__name__)
 

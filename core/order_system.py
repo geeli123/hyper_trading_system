@@ -6,14 +6,15 @@ Handles all order-related operations with async support and event-driven archite
 
 import json
 import logging
-import uuid
-import time
 import threading
-from typing import Optional, Dict, Any, List, Callable
+import time
+import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from hyperliquid.info import Info
+from typing import Optional, Dict, Any, List, Callable
+
 from hyperliquid.exchange import Exchange
+from hyperliquid.info import Info
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ class BasicOrderSystem:
     - Account/user state fetch and simple polling callback
     - Position fetch by symbol
     """
-    
+
     def __init__(self, info: Info, exchange: Exchange, address: str):
         self.info = info
         self.exchange = exchange
@@ -61,7 +62,7 @@ class BasicOrderSystem:
         logger.info("BasicOrderSystem initialized")
 
 
-    # --- Orders ---    
+    # --- Orders ---
     def place_limit_order(self, symbol: str, is_buy: bool, size: float, price: float, tif: str = "Gtc", reduce_only: bool = False) -> bool:
         try:
             if size <= 0 or price <= 0:
@@ -82,7 +83,7 @@ class BasicOrderSystem:
         except Exception as e:
             logger.error(f"Limit order error: {e}")
             return False
-    
+
     # --- Orders admin ---
     def get_open_orders(self, symbol: Optional[str] = None) -> List[Dict[str, Any]]:
         try:
@@ -93,7 +94,7 @@ class BasicOrderSystem:
         except Exception as e:
             logger.error(f"Get open orders error: {e}")
             return []
-    
+
     def cancel_all_orders(self, symbol: Optional[str] = None) -> int:
         try:
             orders = self.get_open_orders(symbol)
@@ -109,7 +110,7 @@ class BasicOrderSystem:
         except Exception as e:
             logger.error(f"Cancel all orders error: {e}")
             return 0
-    
+
     # --- Account / positions ---
     def get_user_state(self) -> Dict[str, Any]:
         try:

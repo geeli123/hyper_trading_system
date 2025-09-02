@@ -7,11 +7,11 @@ from typing import List
 
 from fastapi import APIRouter, HTTPException, Depends
 
-from api_server import (
+from ..api_server import (
     SubscriptionRequest, SubscriptionResponse, SubscriptionStats,
     get_subscription_manager, get_strategy
 )
-from subscription_manager import SubscriptionManager
+from ..subscription_manager import SubscriptionManager
 
 logger = logging.getLogger(__name__)
 

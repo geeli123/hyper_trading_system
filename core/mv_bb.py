@@ -6,11 +6,11 @@ from enum import Enum
 from hyperliquid.exchange import Exchange
 from hyperliquid.info import Info
 
-from candle_helpers import aggregate_ohlcv
-from events import OHLCVEvent, FillEvent
-from indicators import BollingerBands
-from order_system import BasicOrderSystem
 from utils import round_values
+from .candle_helpers import aggregate_ohlcv
+from .events import OHLCVEvent, FillEvent
+from .indicators import BollingerBands
+from .order_system import BasicOrderSystem
 
 
 class MVBBState(Enum):

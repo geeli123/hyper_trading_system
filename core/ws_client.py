@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 import json
+import os
+import ssl
 import threading
 import time
 import typing as _t
 from itertools import count
-import os
 
-from websocket import WebSocketApp
-import ssl
 import certifi
-
+from websocket import WebSocketApp
 
 JsonDict = dict[str, _t.Any]
 

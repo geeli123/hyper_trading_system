@@ -1,5 +1,8 @@
-from events import OHLCVEvent
 import datetime as dt
+from typing import Optional
+
+from .events import OHLCVEvent
+
 
 def _get_timedelta(period: int, unit: str) -> dt.timedelta:
     if unit == "s":
@@ -29,10 +32,10 @@ def normalize_timestamp(timestamp: dt.datetime, period: int, unit: str) -> dt.da
 
 def aggregate_ohlcv(
         new_candle: OHLCVEvent,
-        current_aggregated_candle: OHLCVEvent or None,
+        current_aggregated_candle: Optional[OHLCVEvent],
         target_period: int,
         target_unit: str,
-) -> tuple[bool, OHLCVEvent or None]:
+) -> tuple[bool, Optional[OHLCVEvent]]:
     """
     Aggregates smaller OHLCV candles into larger ones.
 

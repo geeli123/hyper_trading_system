@@ -3,11 +3,10 @@ import pprint
 
 import uvicorn
 
-import example_utils
-from api_server import create_api_server
-from config import load_config
-from mv_bb import MeanReversionBB
-from subscription_manager import SubscriptionManager
+from api import create_api_server, SubscriptionManager
+from config.config import load_config
+from core import MeanReversionBB
+from utils import exchange_utils
 
 # Set log level to DEBUG
 logging.basicConfig(level=logging.DEBUG)
@@ -30,7 +29,7 @@ logger.info(f"{GREEN}Loaded config for environment '{ENVIRONMENT}':{RESET}")
 for k, v in config.items():
     logger.info(f"{GREEN}  {k}: {v}{RESET}")
 
-address, info, exchange = example_utils.setup(skip_ws=False, environment=ENVIRONMENT)
+address, info, exchange = exchange_utils.setup(skip_ws=False, environment=ENVIRONMENT)
 
 pprint.pprint(info.user_state(config.account_address))
 

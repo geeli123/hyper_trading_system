@@ -2,19 +2,18 @@ import getpass
 import json
 import os
 
-from config import load_config
-
 import eth_account
 from eth_account.signers.local import LocalAccount
-
 from hyperliquid.exchange import Exchange
 from hyperliquid.info import Info
+
+from config.config import load_config
 
 
 def setup(base_url=None, skip_ws=False, perp_dexs=None, environment=None):
     # Load configuration
     config = load_config(environment)
-    
+
     # Use config's base_url if not provided as parameter
     if base_url is None:
         base_url = config.get('base_url')
