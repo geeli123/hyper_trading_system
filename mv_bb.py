@@ -1,9 +1,10 @@
+import datetime as dt
+import logging
 from copy import copy
 from enum import Enum
-import datetime as dt
 
-from hyperliquid.info import Info
 from hyperliquid.exchange import Exchange
+from hyperliquid.info import Info
 
 from candle_helpers import aggregate_ohlcv
 from events import OHLCVEvent, FillEvent
@@ -11,7 +12,6 @@ from indicators import BollingerBands
 from order_system import BasicOrderSystem
 from utils import round_values
 
-import logging
 
 class MVBBState(Enum):
     NEUTRAL = 1
@@ -238,256 +238,205 @@ class MeanReversionBB:
         Processes a new market event.
         """
         print(self.order_system.get_open_orders(self.symbol))
+
         if message['channel'] == 'candle':
-            event = OHLCVEvent.from_hyperliquid_message(message['data'])
-            if event.start_time <= self.latest_candle_watermark:
-                print("Skipping candle with start time before latest watermark.")
-                return
-            if event.end_time >= dt.datetime.now():
-                print("Skipping incomplete candle.")
-                return
-            self.latest_candle_watermark = event.start_time
-            is_complete, self.current_candle = aggregate_ohlcv(event, self.current_candle, self.target_candle_periods,
-                                                               self.target_candle_unit)
-
-            if is_complete:
-                print(self.strategy_state)
-                self.bollinger_bands.update(self.current_candle.close)
-
-                if self.bollinger_bands.is_ready:
-                    self.startup_complete = True
-
-                if self.startup_complete:
-                    # handle case where we have no open positions - set limit orders
-                    if self.strategy_state == MVBBState.NEUTRAL:
-                        self.order_system.cancel_all_orders(self.symbol)
-
-                        print(self.hl_exchange.order(
-                            name=self.symbol,
-                            is_buy=True,
-                            sz=round_values(self.trade_size_usd / self.bollinger_bands.lower_band, self.max_decimals_sz),
-                            limit_px=round_values(self.bollinger_bands.lower_band, self.max_decimals_px),
-                            order_type={"limit": {"tif": "Gtc"}},
-                        ))
-                        print(self.hl_exchange.order(
-                            name=self.symbol,
-                            is_buy=False,
-                            sz=round_values(self.trade_size_usd / self.bollinger_bands.upper_band, self.max_decimals_sz),
-                            limit_px=round_values(self.bollinger_bands.upper_band, self.max_decimals_px),
-                            order_type={"limit": {"tif": "Gtc"}},
-                        ))
-
-                    # handle case where we are long - set limit orders / stop loss orders
-                    elif self.strategy_state == MVBBState.LONG:
-                        bb_range_half = (-self.bollinger_bands.lower_band + self.bollinger_bands.middle_band)
-                        self.order_system.cancel_all_orders(self.symbol)
-
-                        # Place a stop order
-                        stop_order_type = {
-                            "trigger": {
-                                "triggerPx": round_values(
-                                    self.bollinger_bands.lower_band - (bb_range_half * self.stop_loss_multiplier),
-                                    self.max_decimals_px
-                                ),
-                                "isMarket": True,
-                                "tpsl": "sl"
-                            }
-                        }
-                        self.hl_exchange.order(
-                            name=self.symbol,
-                            is_buy=False,
-                            sz=self._get_current_asset_quantity(),
-                            limit_px=round_values(
-                                self.bollinger_bands.lower_band - (bb_range_half * self.stop_loss_multiplier),
-                                self.max_decimals_px
-                            ),
-                            order_type=stop_order_type,
-                        )
-
-                        # Place a tp order
-                        tp_order_type = {
-                            "trigger": {
-                                "triggerPx": round_values(
-                                    self.bollinger_bands.lower_band + (bb_range_half * self.take_profit_multiplier),
-                                    self.max_decimals_px
-                                ),
-                                "isMarket": True,
-                                "tpsl": "tp"
-                            }
-                        }
-                        self.hl_exchange.order(
-                            name=self.symbol,
-                            is_buy=False,
-                            sz=self._get_current_asset_quantity(),
-                            limit_px=round_values(
-                                self.bollinger_bands.lower_band + (bb_range_half * self.take_profit_multiplier),
-                                self.max_decimals_px
-                            ),
-                            order_type=tp_order_type,
-                        )
-
-                    # handle case where we are short - set limit / stop loss orders
-                    elif self.strategy_state == MVBBState.SHORT:
-                        bb_range_half = (self.bollinger_bands.upper_band - self.bollinger_bands.middle_band)
-
-                        self.order_system.cancel_all_orders(self.symbol)
-
-                        # Place a stop order
-                        stop_order_type = {
-                            "trigger": {
-                                "triggerPx": round_values(
-                                    self.bollinger_bands.upper_band + (bb_range_half * self.stop_loss_multiplier),
-                                    self.max_decimals_px
-                                ),
-                                "isMarket": True,
-                                "tpsl": "sl"
-                            }
-                        }
-                        self.hl_exchange.order(
-                            name=self.symbol,
-                            is_buy=True,
-                            sz=self._get_current_asset_quantity(),
-                            limit_px=round_values(
-                                self.bollinger_bands.upper_band + (bb_range_half * self.stop_loss_multiplier),
-                                self.max_decimals_px),
-                            order_type=stop_order_type,
-                        )
-
-                        # Place a tp order
-                        tp_order_type = {
-                            "trigger": {
-                                "triggerPx": round_values(
-                                    self.bollinger_bands.upper_band - (bb_range_half * self.take_profit_multiplier)
-                                ),
-                                "isMarket": True,
-                                "tpsl": "tp"
-                            }
-                        }
-                        self.hl_exchange.order(
-                            name=self.symbol,
-                            is_buy=True,
-                            sz=self._get_current_asset_quantity(),
-                            limit_px=round_values(
-                                self.bollinger_bands.upper_band - (bb_range_half * self.take_profit_multiplier),
-                                self.max_decimals_px),
-                            order_type=tp_order_type,
-                        )
-                    else:
-                        raise ValueError(f"Unknown strategy state: {self.strategy_state}")
+            self._process_candle_message(message)
         elif message['channel'] == 'userFills':
-            if not message['data']['isSnapshot']:
-                event = FillEvent.from_hyperliquid_message(message['data']['fills'])
-
-                # if strategy neutral
-                if self.strategy_state == MVBBState.NEUTRAL:
-                    if event.order.quantity > 0:
-                        self.strategy_state = MVBBState.LONG
-
-                        bb_range_half = (-self.bollinger_bands.lower_band + self.bollinger_bands.middle_band)
-                        self.order_system.cancel_all_orders(self.symbol)
-
-                        # Place a stop order
-                        stop_order_type = {
-                            "trigger": {
-                                "triggerPx": round_values(
-                                    self.bollinger_bands.lower_band - (bb_range_half * self.stop_loss_multiplier),
-                                    self.max_decimals_px
-                                ),
-                                "isMarket": True,
-                                "tpsl": "sl"
-                            }
-                        }
-                        self.hl_exchange.order(
-                            name=self.symbol,
-                            is_buy=False,
-                            sz=self._get_current_asset_quantity(),
-                            limit_px=round_values(
-                                self.bollinger_bands.lower_band - (bb_range_half * self.stop_loss_multiplier),
-                                self.max_decimals_px
-                            ),
-                            order_type=stop_order_type,
-                        )
-
-                        # Place a tp order
-                        tp_order_type = {
-                            "trigger": {
-                                "triggerPx": round_values(
-                                    self.bollinger_bands.lower_band + (bb_range_half * self.take_profit_multiplier),
-                                    self.max_decimals_px
-                                ),
-                                "isMarket": True,
-                                "tpsl": "tp"
-                            }
-                        }
-                        self.hl_exchange.order(
-                            name=self.symbol,
-                            is_buy=False,
-                            sz=self._get_current_asset_quantity(),
-                            limit_px=round_values(
-                                self.bollinger_bands.lower_band + (bb_range_half * self.take_profit_multiplier),
-                                self.max_decimals_px
-                            ),
-                            order_type=tp_order_type,
-                        )
-
-                    elif event.order.quantity < 0:
-                        self.strategy_state = MVBBState.SHORT
-
-                        bb_range_half = (self.bollinger_bands.upper_band - self.bollinger_bands.middle_band)
-
-                        self.order_system.cancel_all_orders(self.symbol)
-
-                        # Place a stop order
-                        stop_order_type = {
-                            "trigger": {
-                                "triggerPx": round_values(
-                                    self.bollinger_bands.upper_band + (bb_range_half * self.stop_loss_multiplier),
-                                    self.max_decimals_px
-                                ),
-                                "isMarket": True,
-                                "tpsl": "sl"
-                            }
-                        }
-                        self.hl_exchange.order(
-                            name=self.symbol,
-                            is_buy=True,
-                            sz=self._get_current_asset_quantity(),
-                            limit_px=round_values(
-                                self.bollinger_bands.upper_band + (bb_range_half * self.stop_loss_multiplier),
-                                self.max_decimals_px),
-                            order_type=stop_order_type,
-                        )
-
-                        # Place a tp order
-                        tp_order_type = {
-                            "trigger": {
-                                "triggerPx": round_values(
-                                    self.bollinger_bands.upper_band - (bb_range_half * self.take_profit_multiplier)
-                                ),
-                                "isMarket": True,
-                                "tpsl": "tp"
-                            }
-                        }
-                        self.hl_exchange.order(
-                            name=self.symbol,
-                            is_buy=True,
-                            sz=self._get_current_asset_quantity(),
-                            limit_px=round_values(
-                                self.bollinger_bands.upper_band - (bb_range_half * self.take_profit_multiplier),
-                                self.max_decimals_px),
-                            order_type=tp_order_type,
-                        )
-                    else:
-                        raise ValueError(f"Fill event with zero quantity: {event}")
-                # if strategy long
-                elif self.strategy_state == MVBBState.LONG:
-                    self.strategy_state = MVBBState.NEUTRAL
-                    self.order_system.cancel_all_orders(self.symbol)
-                # if strategy short
-                elif self.strategy_state == MVBBState.SHORT:
-                    self.strategy_state = MVBBState.NEUTRAL
-                    self.order_system.cancel_all_orders(self.symbol)
-                else:
-                    raise ValueError(f"Unknown strategy state: {self.strategy_state}")
+            self._process_fill_message(message)
         else:
             raise ValueError(f"Message type {message['channel']} not supported.")
+
+    def _process_candle_message(self, message: dict):
+        """Process K-line data message"""
+        event = OHLCVEvent.from_hyperliquid_message(message['data'])
+
+        # data validation
+        if not self._validate_candle_event(event):
+            return
+
+        # Update K-line data
+        self.latest_candle_watermark = event.start_time
+        is_complete, self.current_candle = aggregate_ohlcv(
+            event, self.current_candle, self.target_candle_periods, self.target_candle_unit
+        )
+
+        if is_complete:
+            print(self.strategy_state)
+            self.bollinger_bands.update(self.current_candle.close)
+
+            if self.bollinger_bands.is_ready:
+                self.startup_complete = True
+
+            if self.startup_complete:
+                self._execute_strategy_logic()
+
+    def _process_fill_message(self, message: dict):
+        """Process transaction data messages"""
+        if message['data']['isSnapshot']:
+            return
+
+        event = FillEvent.from_hyperliquid_message(message['data']['fills'])
+        self._handle_fill_event(event)
+
+    def _validate_candle_event(self, event: OHLCVEvent) -> bool:
+        """Verify the validity of the K-line event"""
+        if event.start_time <= self.latest_candle_watermark:
+            print("Skipping candle with start time before latest watermark.")
+            return False
+        if event.end_time >= dt.datetime.now():
+            print("Skipping incomplete candle.")
+            return False
+        return True
+
+    def _execute_strategy_logic(self):
+        """Enforcement Strategy Logic"""
+        if self.strategy_state == MVBBState.NEUTRAL:
+            self._handle_neutral_state()
+        elif self.strategy_state == MVBBState.LONG:
+            self._handle_long_state()
+        elif self.strategy_state == MVBBState.SHORT:
+            self._handle_short_state()
+        else:
+            raise ValueError(f"Unknown strategy state: {self.strategy_state}")
+
+    def _handle_neutral_state(self):
+        """处理中性状态 - 在布林带上下轨放置限价单"""
+        self.order_system.cancel_all_orders(self.symbol)
+
+        # 在布林带下轨放置买入限价单
+        buy_result = self.hl_exchange.order(
+            name=self.symbol,
+            is_buy=True,
+            sz=round_values(self.trade_size_usd / self.bollinger_bands.lower_band, self.max_decimals_sz),
+            limit_px=round_values(self.bollinger_bands.lower_band, self.max_decimals_px),
+            order_type={"limit": {"tif": "Gtc"}},
+        )
+        print(f"Buy order result: {buy_result}")
+
+        # 在布林带上轨放置卖出限价单
+        sell_result = self.hl_exchange.order(
+            name=self.symbol,
+            is_buy=False,
+            sz=round_values(self.trade_size_usd / self.bollinger_bands.upper_band, self.max_decimals_sz),
+            limit_px=round_values(self.bollinger_bands.upper_band, self.max_decimals_px),
+            order_type={"limit": {"tif": "Gtc"}},
+        )
+        print(f"Sell order result: {sell_result}")
+
+    def _handle_long_state(self):
+        """处理多头状态 - 设置止损止盈订单"""
+        bb_range_half = (-self.bollinger_bands.lower_band + self.bollinger_bands.middle_band)
+        self.order_system.cancel_all_orders(self.symbol)
+
+        # Setting Stop Loss Orders
+        self._place_stop_loss_order(bb_range_half, is_long=True)
+
+        # Setting Take Profit Orders
+        self._place_take_profit_order(bb_range_half, is_long=True)
+
+    def _handle_short_state(self):
+        """处理空头状态 - 设置止损止盈订单"""
+        bb_range_half = (self.bollinger_bands.upper_band - self.bollinger_bands.middle_band)
+        self.order_system.cancel_all_orders(self.symbol)
+
+        # Setting Stop Loss Orders
+        self._place_stop_loss_order(bb_range_half, is_long=False)
+
+        # Setting Take Profit Orders
+        self._place_take_profit_order(bb_range_half, is_long=False)
+
+    def _place_stop_loss_order(self, bb_range_half: float, is_long: bool):
+        """Placing Stop Loss Orders"""
+        if is_long:
+            trigger_price = self.bollinger_bands.lower_band - (bb_range_half * self.stop_loss_multiplier)
+            is_buy = False
+        else:
+            trigger_price = self.bollinger_bands.upper_band + (bb_range_half * self.stop_loss_multiplier)
+            is_buy = True
+
+        stop_order_type = {
+            "trigger": {
+                "triggerPx": round_values(trigger_price, self.max_decimals_px),
+                "isMarket": True,
+                "tpsl": "sl"
+            }
+        }
+
+        self.hl_exchange.order(
+            name=self.symbol,
+            is_buy=is_buy,
+            sz=self._get_current_asset_quantity(),
+            limit_px=round_values(trigger_price, self.max_decimals_px),
+            order_type=stop_order_type,
+        )
+
+    def _place_take_profit_order(self, bb_range_half: float, is_long: bool):
+        """Placement of Take Profit Orders"""
+        if is_long:
+            trigger_price = self.bollinger_bands.lower_band + (bb_range_half * self.take_profit_multiplier)
+            is_buy = False
+        else:
+            trigger_price = self.bollinger_bands.upper_band - (bb_range_half * self.take_profit_multiplier)
+            is_buy = True
+
+        tp_order_type = {
+            "trigger": {
+                "triggerPx": round_values(trigger_price, self.max_decimals_px),
+                "isMarket": True,
+                "tpsl": "tp"
+            }
+        }
+
+        self.hl_exchange.order(
+            name=self.symbol,
+            is_buy=is_buy,
+            sz=self._get_current_asset_quantity(),
+            limit_px=round_values(trigger_price, self.max_decimals_px),
+            order_type=tp_order_type,
+        )
+
+    def _handle_fill_event(self, event: FillEvent):
+        """Handling of closing events"""
+        if self.strategy_state == MVBBState.NEUTRAL:
+            self._handle_neutral_fill(event)
+        elif self.strategy_state == MVBBState.LONG:
+            self._handle_long_fill(event)
+        elif self.strategy_state == MVBBState.SHORT:
+            self._handle_short_fill(event)
+        else:
+            raise ValueError(f"Unknown strategy state: {self.strategy_state}")
+
+    def _handle_neutral_fill(self, event: FillEvent):
+        """Handling of neutral state transactions"""
+        if event.order.quantity > 0:
+            self.strategy_state = MVBBState.LONG
+            self._setup_long_position()
+        elif event.order.quantity < 0:
+            self.strategy_state = MVBBState.SHORT
+            self._setup_short_position()
+        else:
+            raise ValueError(f"Fill event with zero quantity: {event}")
+
+    def _handle_long_fill(self, event: FillEvent):
+        """Handling transactions in a long position"""
+        self.strategy_state = MVBBState.NEUTRAL
+        self.order_system.cancel_all_orders(self.symbol)
+
+    def _handle_short_fill(self, event: FillEvent):
+        """Handling of transactions in a short position"""
+        self.strategy_state = MVBBState.NEUTRAL
+        self.order_system.cancel_all_orders(self.symbol)
+
+    def _setup_long_position(self):
+        """Setting up a long position"""
+        bb_range_half = (-self.bollinger_bands.lower_band + self.bollinger_bands.middle_band)
+        self.order_system.cancel_all_orders(self.symbol)
+        self._place_stop_loss_order(bb_range_half, is_long=True)
+        self._place_take_profit_order(bb_range_half, is_long=True)
+
+    def _setup_short_position(self):
+        """Setting up a short position"""
+        bb_range_half = (self.bollinger_bands.upper_band - self.bollinger_bands.middle_band)
+        self.order_system.cancel_all_orders(self.symbol)
+        self._place_stop_loss_order(bb_range_half, is_long=False)
+        self._place_take_profit_order(bb_range_half, is_long=False)

@@ -1,5 +1,3 @@
-import typing as _t
-
 from perps_api import PerpsAPI
 
 

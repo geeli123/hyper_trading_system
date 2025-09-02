@@ -1,20 +1,17 @@
 import logging
-from config import load_config
-from hyperliquid.info import Info  
-from hyperliquid.exchange import Exchange
-import example_utils
-import datetime as dt
 import pprint
 
+import example_utils
+from config import load_config
 from mv_bb import MeanReversionBB
 
 # Set log level to DEBUG
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-def callback(msg):  
+def callback(msg):
     logger.debug("callback")
-    logger.debug(f"Received: {msg}")  
+    logger.debug(f"Received: {msg}")
 
 # Set environment: 'mainnet' or 'testnet' (or None for default)
 ENVIRONMENT = 'mainnet'
@@ -34,7 +31,7 @@ pprint.pprint(info.user_state(config.account_address))
 
 strategy = MeanReversionBB(exchange, info, address, "ETH")
 
-# Subscribe with the callback  
+# Subscribe with the callback
 subscription1 = { "type": "candle", "coin": "ETH", "interval": "1m" }
 subscription2 = { "type": "userFills", "user": address }
 

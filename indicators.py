@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import collections
 import statistics
+
 
 class BollingerBands:
     """
