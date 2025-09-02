@@ -1,17 +1,23 @@
 import logging
 import pprint
 
+import uvicorn
+
 import example_utils
+from api_server import create_api_server
 from config import load_config
 from mv_bb import MeanReversionBB
+from subscription_manager import SubscriptionManager
 
 # Set log level to DEBUG
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+
 def callback(msg):
     logger.debug("callback")
     logger.debug(f"Received: {msg}")
+
 
 # Set environment: 'mainnet' or 'testnet' (or None for default)
 ENVIRONMENT = 'mainnet'
@@ -26,20 +32,18 @@ for k, v in config.items():
 
 address, info, exchange = example_utils.setup(skip_ws=False, environment=ENVIRONMENT)
 
-
 pprint.pprint(info.user_state(config.account_address))
 
 strategy = MeanReversionBB(exchange, info, address, "ETH")
 
-# Subscribe with the callback
-subscription1 = { "type": "candle", "coin": "ETH", "interval": "1m" }
-subscription2 = { "type": "userFills", "user": address }
+# Create subscription manager (no default subscriptions)
+subscription_manager = SubscriptionManager(info, strategy.process_message)
 
-result1 = info.subscribe(subscription1, strategy.process_message)
-result2 = info.subscribe(subscription2, strategy.process_message)
+logger.info("Trading system initialized successfully!")
 
-logger.debug(f"Subscribe result: {result1}")
-logger.debug(f"Subscribe result: {result2}")
-logger.debug("subscribed")
-logger.debug(f"Active subscriptions: {info.ws_manager.active_subscriptions}")
-logger.debug(f"WS ready: {info.ws_manager.ws_ready}")
+# Create API server
+api_app, host, port = create_api_server(subscription_manager, info, strategy)
+
+# Start the API server (this will block and keep the server running)
+if __name__ == "__main__":
+    uvicorn.run(api_app, host=host, port=port, log_level="info")

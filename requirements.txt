@@ -29,3 +29,5 @@ typing_extensions==4.14.1
 urllib3==2.5.0
 websocket-client==1.8.0
 PyYAML==6.0.2
+fastapi==0.104.1
+uvicorn==0.24.0
