@@ -7,8 +7,7 @@ from hyperliquid.utils import constants
 from database.session import Environment
 
 
-def setup(base_url=None, skip_ws=False, perp_dexs=None, environment=None, account_address=None, secret_key=None,
-          api_wallet_address=None):
+def setup(base_url=None, skip_ws=False, perp_dexs=None, environment=None, secret_key=None):
     if base_url == None:
         base_url = constants.TESTNET_API_URL if environment == Environment.dev else constants.MAINNET_API_URL
     account: LocalAccount = eth_account.Account.from_key(secret_key)

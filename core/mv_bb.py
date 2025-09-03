@@ -110,7 +110,7 @@ class MeanReversionBB:
         print(f"Latest message: {self.latest_candle_watermark}")
         self.order_system.cancel_all_orders(self.symbol)
 
-        positions = self.order_system.get_position("ETH")
+        positions = self.order_system.get_position(self.symbol)
         print("show positions", positions)
         if positions is None or positions['size'] == 0:
             self.strategy_state = MVBBState.NEUTRAL

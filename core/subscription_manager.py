@@ -10,6 +10,8 @@ from enum import Enum
 from typing import Callable
 from typing import Dict, List, Optional, Any
 
+import eth_account
+
 logger = logging.getLogger(__name__)
 
 
@@ -68,22 +70,19 @@ class SubscriptionManager:
                 from database.models import Account  # type: ignore
                 if params is not None:
                     account_alias = params.get("account_alias")
-                    account_address_override = params.get("account_address")
                     # If stream requires a user and not provided, map alias/address to 'user'
-                    if (account_alias or account_address_override) and ("user" not in params):
-                        user_addr = None
-                        if account_address_override:
-                            user_addr = account_address_override
-                        elif account_alias:
-                            db = SessionLocal()
-                            try:
-                                acc = db.query(Account).filter_by(alias=account_alias).first()
-                                if acc:
-                                    user_addr = acc.account_address
-                            finally:
-                                db.close()
-                        if user_addr:
-                            params = {**params, "user": user_addr}
+                    if account_alias and ("user" not in params):
+                        user_secret_key = None
+                        db = SessionLocal()
+                        try:
+                            acc = db.query(Account).filter_by(alias=account_alias).first()
+                            if acc:
+                                user_secret_key = acc.secret_key
+                        finally:
+                            db.close()
+                        if user_secret_key:
+                            params = {**params, "user_secret_key": user_secret_key}
+                            params = {**params, "user": eth_account.Account.from_key(user_secret_key).address}
             except Exception as e:
                 logger.warning(f"Dynamic account resolution skipped: {e}")
 
@@ -107,9 +106,9 @@ class SubscriptionManager:
                 address, info, exchange = exchange_utils.setup(
                     skip_ws=False,
                     environment=self.environment,
-                    account_address=target_user
+                    secret_key=params.get("user_secret_key")
                 )
-                strategy = self.strategy_factory(exchange, info, address, "ETH")
+                strategy = self.strategy_factory(exchange, info, address, params.get("symbol"))
                 self._contexts[target_user] = {
                     'info': info,
                     'exchange': exchange,
