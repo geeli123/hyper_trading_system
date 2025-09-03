@@ -146,6 +146,11 @@ async def get_subscription_templates():
             "params": {"type": "candle", "coin": "ETH", "interval": "5m"},
             "description": "ETH 5-minute candle data"
         },
+        "candle_15m_eth": {
+            "type": "candle",
+            "params": {"type": "candle", "coin": "ETH", "interval": "15m"},
+            "description": "ETH 15-minute candle data"
+        },
         "candle_1h_eth": {
             "type": "candle",
             "params": {"type": "candle", "coin": "ETH", "interval": "1h"},

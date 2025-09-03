@@ -15,6 +15,7 @@ from api import strategy_records as strategy_records_router
 from api import subscriptions as subscriptions_router
 from api import system as system_router
 from api.common import set_subscription_manager
+from config.config_manager import ConfigManager
 from core import MeanReversionBB
 from database.init_db import init_db
 from database.session import Environment
@@ -57,6 +58,8 @@ logger.info("Trading system initialized successfully (lazy contexts)!")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    # ensure default configs exist
+    ConfigManager.init_default_configs()
     yield
 app.router.lifespan_context = lifespan
 

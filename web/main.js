@@ -24,7 +24,8 @@ createApp({
       configs: [],
       accounts: [],
       configForm: { key: '', value: '', description: '', config_type: 'string' },
-      accountForm: { alias: '', account_address: '', api_wallet_address: '', secret_key: '', is_active: true },
+      accountForm: { alias: '', api_wallet_address: '', secret_key: '', is_active: true },
+      homeForm: { name: '', coin: 'ETH', interval: '1m', account_alias: '' },
     });
 
     const setRoute = () => { state.route = (location.hash.replace('#/', '') || 'monitor'); };
@@ -38,15 +39,16 @@ createApp({
     const refreshConfigs = async () => { state.configs = await api.listConfigs(); };
     const refreshAccounts = async () => { state.accounts = await api.listAccounts(); };
 
-    const createFromFirstTemplate = async () => {
-      const tpls = await api.templates();
-      const first = Object.keys(tpls)[0];
-      if (first) {
-        const alias = prompt('可选：输入account_alias用于该订阅（留空则默认）');
-        const addr = !alias ? prompt('可选：直接输入account_address（留空则默认）') : '';
-        await api.createFromTemplate(first, { account_alias: alias || undefined, account_address: addr || undefined });
-        await refreshMonitor();
-      }
+    const createHome = async () => {
+      // We map to the candle subscription type used by backend
+      const params = { type: 'candle', coin: state.homeForm.coin, interval: state.homeForm.interval };
+      const q = {};
+      if (state.homeForm.account_alias) q.account_alias = state.homeForm.account_alias;
+      // Use templates endpoint to keep consistency
+      const templateKey = `candle_${state.homeForm.interval}_${state.homeForm.coin.toLowerCase()}`;
+      await api.createFromTemplate(templateKey, q);
+      state.homeForm = { name: '', coin: 'ETH', interval: '1m', account_alias: '' };
+      await refreshMonitor();
     };
     const clearAll = async () => { await api.clearAll(); await refreshMonitor(); };
     const removeSub = async (id) => { await api.removeSub(id); await refreshMonitor(); };
@@ -54,14 +56,14 @@ createApp({
     const saveConfig = async () => { await api.upsertConfig(state.configForm); state.configForm = { key: '', value: '', description: '', config_type: 'string' }; await refreshConfigs(); };
     const deleteConfig = async (key) => { await api.deleteConfig(key); await refreshConfigs(); };
 
-    const saveAccount = async () => { await api.upsertAccount(state.accountForm); state.accountForm = { alias: '', account_address: '', api_wallet_address: '', secret_key: '', is_active: true }; await refreshAccounts(); };
+    const saveAccount = async () => { await api.upsertAccount(state.accountForm); state.accountForm = { alias: '', api_wallet_address: '', secret_key: '', is_active: true }; await refreshAccounts(); };
     const deleteAccount = async (alias) => { await api.deleteAccount(alias); await refreshAccounts(); };
 
     onMounted(async () => {
       await Promise.all([refreshMonitor(), refreshConfigs(), refreshAccounts()]);
     });
 
-    return { ...Vue.toRefs(state), createFromFirstTemplate, clearAll, removeSub, saveConfig, deleteConfig, saveAccount, deleteAccount };
+    return { ...Vue.toRefs(state), createHome, clearAll, removeSub, saveConfig, deleteConfig, saveAccount, deleteAccount };
   }
 }).mount('#app');
 

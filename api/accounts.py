@@ -1,5 +1,6 @@
 from typing import List, Optional
 
+from eth_account import Account as EthAccount
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict
 
@@ -11,7 +12,6 @@ router = APIRouter(prefix="/accounts", tags=["accounts"])
 
 class AccountIn(BaseModel):
     alias: str
-    account_address: str
     api_wallet_address: str
     secret_key: str
     is_active: Optional[bool] = True
@@ -40,13 +40,21 @@ def upsert_account(payload: AccountIn):
     db = SessionLocal()
     try:
         obj = db.query(Account).filter_by(alias=payload.alias).first()
+        # derive account address from secret key
+        derived_address = EthAccount.from_key(payload.secret_key).address
         if obj:
-            obj.account_address = payload.account_address
+            obj.account_address = derived_address
             obj.api_wallet_address = payload.api_wallet_address
             obj.secret_key = payload.secret_key
             obj.is_active = payload.is_active if payload.is_active is not None else obj.is_active
         else:
-            obj = Account(**payload.dict())
+            obj = Account(
+                alias=payload.alias,
+                account_address=derived_address,
+                api_wallet_address=payload.api_wallet_address,
+                secret_key=payload.secret_key,
+                is_active=payload.is_active if payload.is_active is not None else True,
+            )
             db.add(obj)
         db.commit()
         db.refresh(obj)

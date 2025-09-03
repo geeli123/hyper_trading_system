@@ -31,27 +31,33 @@ def list_configs():
 
 @router.get("/{key}", response_model=ConfigOut)
 def get_config(key: str):
-    obj = ConfigManager.get_config(key)
-    if not obj:
-        raise HTTPException(status_code=404, detail="Config not found")
-    return obj
+    # return full config object by filtering from all
+    configs = ConfigManager.get_all_configs()
+    for c in configs:
+        if c["key"] == key:
+            return c
+    raise HTTPException(status_code=404, detail="Config not found")
 
 
 @router.post("/", response_model=ConfigOut)
 def upsert_config(payload: ConfigIn):
-    return ConfigManager.set_config(
+    ok = ConfigManager.set_config(
         key=payload.key,
         value=payload.value,
-        description=payload.description,
-        config_type=payload.config_type,
+        description=payload.description or "",
+        config_type=payload.config_type or "string",
     )
+    if not ok:
+        raise HTTPException(status_code=500, detail="Failed to upsert config")
+    # return updated object
+    return get_config(payload.key)
 
 
 @router.delete("/{key}")
 def delete_config(key: str):
-    n = ConfigManager.delete_config(key)
-    if n == 0:
+    ok = ConfigManager.delete_config(key)
+    if not ok:
         raise HTTPException(status_code=404, detail="Config not found")
-    return {"deleted": n}
+    return {"deleted": 1}
 
 
