@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Optional
 
 from eth_account import Account as EthAccount
 from fastapi import APIRouter, HTTPException
@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict
 
 from database.models import Account
 from database.session import SessionLocal
+from utils.response import ApiResponse
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
 
@@ -26,16 +27,17 @@ class AccountOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-@router.get("/", response_model=List[AccountOut])
+@router.get("/")
 def list_accounts():
     db = SessionLocal()
     try:
-        return db.query(Account).all()
+        items = db.query(Account).all()
+        return ApiResponse.success([AccountOut.model_validate(i).model_dump() for i in items])
     finally:
         db.close()
 
 
-@router.post("/", response_model=AccountOut)
+@router.post("/")
 def upsert_account(payload: AccountIn):
     db = SessionLocal()
     try:
@@ -58,7 +60,7 @@ def upsert_account(payload: AccountIn):
             db.add(obj)
         db.commit()
         db.refresh(obj)
-        return obj
+        return ApiResponse.success(AccountOut.model_validate(obj).model_dump(), "saved")
     finally:
         db.close()
 
@@ -71,7 +73,7 @@ def delete_account(alias: str):
         if n == 0:
             raise HTTPException(status_code=404, detail="Account not found")
         db.commit()
-        return {"deleted": n}
+        return ApiResponse.success({"deleted": n})
     finally:
         db.close()
 

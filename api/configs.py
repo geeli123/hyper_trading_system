@@ -1,9 +1,10 @@
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict
 
 from config.config_manager import ConfigManager
+from utils.response import ApiResponse
 
 router = APIRouter(prefix="/configs", tags=["configs"])
 
@@ -24,22 +25,22 @@ class ConfigOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-@router.get("/", response_model=List[ConfigOut])
+@router.get("/")
 def list_configs():
-    return ConfigManager.get_all_configs()
+    return ApiResponse.success(ConfigManager.get_all_configs())
 
 
-@router.get("/{key}", response_model=ConfigOut)
+@router.get("/{key}")
 def get_config(key: str):
     # return full config object by filtering from all
     configs = ConfigManager.get_all_configs()
     for c in configs:
         if c["key"] == key:
-            return c
+            return ApiResponse.success(c)
     raise HTTPException(status_code=404, detail="Config not found")
 
 
-@router.post("/", response_model=ConfigOut)
+@router.post("/")
 def upsert_config(payload: ConfigIn):
     ok = ConfigManager.set_config(
         key=payload.key,
@@ -50,7 +51,7 @@ def upsert_config(payload: ConfigIn):
     if not ok:
         raise HTTPException(status_code=500, detail="Failed to upsert config")
     # return updated object
-    return get_config(payload.key)
+    return ApiResponse.success(next((c for c in ConfigManager.get_all_configs() if c["key"] == payload.key), None), "saved")
 
 
 @router.delete("/{key}")
@@ -58,6 +59,6 @@ def delete_config(key: str):
     ok = ConfigManager.delete_config(key)
     if not ok:
         raise HTTPException(status_code=404, detail="Config not found")
-    return {"deleted": 1}
+    return ApiResponse.success({"deleted": 1})
 
 

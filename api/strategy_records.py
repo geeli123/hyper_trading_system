@@ -1,10 +1,9 @@
-from typing import List
-
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict
 
 from database.models import StrategyRecord
 from database.session import SessionLocal
+from utils.response import ApiResponse
 
 router = APIRouter(prefix="/strategy-records", tags=["strategy-records"])
 
@@ -19,11 +18,12 @@ class StrategyRecordOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-@router.get("/", response_model=List[StrategyRecordOut])
+@router.get("/")
 def list_strategy_records():
     db = SessionLocal()
     try:
-        return db.query(StrategyRecord).order_by(StrategyRecord.id.desc()).limit(500).all()
+        items = db.query(StrategyRecord).order_by(StrategyRecord.id.desc()).limit(500).all()
+        return ApiResponse.success([StrategyRecordOut.model_validate(i).model_dump() for i in items])
     finally:
         db.close()
 

@@ -3,17 +3,17 @@ import logging
 from datetime import datetime
 from typing import Any
 
+from hyperliquid.utils import constants
+
 from database.models import Config
-from database.session import SessionLocal
+from database.session import SessionLocal, Environment, APP_ENV
 
 
 class ConfigManager:
     """配置管理器"""
-
+    base_url = constants.TESTNET_API_URL if APP_ENV == Environment.dev else constants.MAINNET_API_URL
     DEFAULT_CONFIGS = {
-        'mainnet_base_url': {'value': 'https://api.hyperliquid.xyz/info', 'description': 'hp主网域名',
-                             'config_type': 'string'},
-        'testnet_base_url': {'value': 'https://api.hyperliquid-testnet.xyz', 'description': 'hp测试网域名',
+        'base_url': {'value': base_url, 'description': '当前访问域名',
                              'config_type': 'string'},
     }
 

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Trading System Console{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h3>Create / Update Config</h3>
+  <div class="row">
+    <input class="input" placeholder="key" v-model="configForm.key">
+    <input class="input" placeholder="value" v-model="configForm.value">
+    <input class="input" placeholder="description" v-model="configForm.description">
+    <input class="input" placeholder="config_type" v-model="configForm.config_type">
+    <button class="btn" @click="saveConfig">Save</button>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Config List</h3>
+  <table class="table">
+    <thead><tr><th>Key</th><th>Value</th><th>Type</th><th>Description</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr v-for="c in configs" :key="c.id">
+        <td>{{ c.key }}</td>
+        <td style="max-width:360px;overflow:auto">{{ c.value }}</td>
+        <td>{{ c.config_type }}</td>
+        <td>{{ c.description }}</td>
+        <td><button class="btn danger" @click="deleteConfig(c.key)">Delete</button></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+{% endblock %}

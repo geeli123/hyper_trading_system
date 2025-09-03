@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Accounts - Trading System Console{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h3>Create / Update Account</h3>
+  <div class="row">
+    <input class="input" placeholder="Alias" v-model="accountForm.alias">
+    <input class="input" placeholder="API Wallet Address" v-model="accountForm.api_wallet_address">
+    <input class="input" placeholder="Secret Key" v-model="accountForm.secret_key">
+    <button class="btn" @click="saveAccount">Save</button>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Account List</h3>
+  <table class="table">
+    <thead><tr><th>Alias</th><th>Account Address</th><th>API Wallet</th><th>Active</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr v-for="a in accounts" :key="a.id">
+        <td>{{ a.alias }}</td>
+        <td>{{ a.account_address }}</td>
+        <td>{{ a.api_wallet_address }}</td>
+        <td>{{ a.is_active ? 'Yes' : 'No' }}</td>
+        <td><button class="btn danger" @click="deleteAccount(a.alias)">Delete</button></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+{% endblock %}

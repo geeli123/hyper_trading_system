@@ -1,10 +1,9 @@
-from typing import List
-
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict
 
 from database.models import Log
 from database.session import SessionLocal
+from utils.response import ApiResponse
 
 router = APIRouter(prefix="/logs", tags=["logs"])
 
@@ -25,16 +24,17 @@ class LogOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-@router.get("/", response_model=List[LogOut])
+@router.get("/")
 def list_logs():
     db = SessionLocal()
     try:
-        return db.query(Log).order_by(Log.id.desc()).limit(500).all()
+        items = db.query(Log).order_by(Log.id.desc()).limit(500).all()
+        return ApiResponse.success([LogOut.model_validate(i).model_dump() for i in items])
     finally:
         db.close()
 
 
-@router.post("/", response_model=LogOut)
+@router.post("/")
 def create_log(payload: LogIn):
     db = SessionLocal()
     try:
@@ -42,7 +42,7 @@ def create_log(payload: LogIn):
         db.add(obj)
         db.commit()
         db.refresh(obj)
-        return obj
+        return ApiResponse.success(LogOut.model_validate(obj).model_dump(), "created")
     finally:
         db.close()
 
