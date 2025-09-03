@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from database.models import Account
 from database.session import SessionLocal
@@ -23,9 +23,7 @@ class AccountOut(BaseModel):
     account_address: str
     api_wallet_address: str
     is_active: bool
-
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 @router.get("/", response_model=List[AccountOut])

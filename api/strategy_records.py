@@ -1,7 +1,7 @@
 from typing import List
 
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from database.models import StrategyRecord
 from database.session import SessionLocal
@@ -16,9 +16,7 @@ class StrategyRecordOut(BaseModel):
     params: dict
     status: str
     error_message: str
-
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 @router.get("/", response_model=List[StrategyRecordOut])

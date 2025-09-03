@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from config.config_manager import ConfigManager
 
@@ -21,9 +21,7 @@ class ConfigOut(BaseModel):
     value: str
     description: Optional[str]
     config_type: str
-
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 @router.get("/", response_model=List[ConfigOut])

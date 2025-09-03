@@ -1,5 +1,6 @@
 import logging
 import os
+from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI
@@ -19,7 +20,7 @@ from database.init_db import init_db
 from database.session import Environment
 
 # Set log level to DEBUG
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -53,10 +54,11 @@ app.include_router(strategy_records_router.router)
 logger.info("Trading system initialized successfully (lazy contexts)!")
 
 
-@app.on_event("startup")
-async def _startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     init_db()
-
+    yield
+app.router.lifespan_context = lifespan
 
 # Start the API server (this will block and keep the server running)
 if __name__ == "__main__":
