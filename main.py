@@ -1,48 +1,63 @@
 import logging
-import pprint
+import os
 
 import uvicorn
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
-from api import create_api_server, SubscriptionManager
-from config.config import load_config
+from api import SubscriptionManager
+from api import accounts as accounts_router
+from api import configs as configs_router
+from api import logs as logs_router
+from api import strategy_records as strategy_records_router
+from api import subscriptions as subscriptions_router
+from api import system as system_router
+from api.common import set_subscription_manager
 from core import MeanReversionBB
-from utils import exchange_utils
+from database.init_db import init_db
+from database.session import Environment
 
 # Set log level to DEBUG
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
-def callback(msg):
-    logger.debug("callback")
-    logger.debug(f"Received: {msg}")
+def strategy_factory(exchange, info, address, symbol):
+    return MeanReversionBB(exchange, info, address, symbol)
 
 
-# Set environment: 'mainnet' or 'testnet' (or None for default)
-ENVIRONMENT = 'mainnet'
-config = load_config(ENVIRONMENT)
+app = FastAPI(title="Hyperliquid Trading System API",
+              description="API for managing trading system subscriptions and monitoring", version="1.0.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Print config in green color
-GREEN = "\033[92m"
-RESET = "\033[0m"
-logger.info(f"{GREEN}Loaded config for environment '{ENVIRONMENT}':{RESET}")
-for k, v in config.items():
-    logger.info(f"{GREEN}  {k}: {v}{RESET}")
+app.mount("/", StaticFiles(directory="web", html=True), name="web")
 
-address, info, exchange = exchange_utils.setup(skip_ws=False, environment=ENVIRONMENT)
+subscription_manager = SubscriptionManager(strategy_factory=strategy_factory,
+                                           environment=os.getenv("APP_ENV", Environment.dev))
+set_subscription_manager(subscription_manager)
 
-pprint.pprint(info.user_state(config.account_address))
+app.include_router(system_router.router)
+app.include_router(subscriptions_router.router)
+app.include_router(configs_router.router)
+app.include_router(accounts_router.router)
+app.include_router(logs_router.router)
+app.include_router(strategy_records_router.router)
 
-strategy = MeanReversionBB(exchange, info, address, "ETH")
+logger.info("Trading system initialized successfully (lazy contexts)!")
 
-# Create subscription manager (no default subscriptions)
-subscription_manager = SubscriptionManager(info, strategy.process_message)
 
-logger.info("Trading system initialized successfully!")
+@app.on_event("startup")
+async def _startup():
+    init_db()
 
-# Create API server
-api_app, host, port = create_api_server(subscription_manager, info, strategy)
 
 # Start the API server (this will block and keep the server running)
 if __name__ == "__main__":
-    uvicorn.run(api_app, host=host, port=port, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
