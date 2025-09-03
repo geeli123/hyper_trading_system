@@ -10,8 +10,22 @@ templates = Jinja2Templates(directory="templates")
 
 @router.get("/")
 async def root_page(request: Request):
-    # 先返回一个简单的HTML页面，不依赖其他模块
-    return templates.TemplateResponse("index.html", {"request": request})
+    # 准备模板数据
+    template_data = {
+        "request": request,
+        "status": {
+            "ws_ready": True,  # 假设WebSocket已连接
+            "active_subscriptions": 0,
+            "subscription_stats": {
+                "total": 0
+            }
+        },
+        "subscriptions": [],
+        "accounts": [],
+        "configs": []
+    }
+    
+    return templates.TemplateResponse("index.html", template_data)
 
 
 # Serve individual pages

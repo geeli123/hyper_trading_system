@@ -111,7 +111,7 @@
       </select>
       <select class="input" v-model="form.account_alias" required>
         <option value="">Select Account *</option>
-        <option v-for="a in accounts" :key="a.id" :value="a.alias">{{ a.alias }}</option>
+        {% raw %}<option v-for="a in accounts" :key="a.id" :value="a.alias">{{ a.alias }}</option>{% endraw %}
       </select>
       <button class="btn" @click="createSubscription">Create</button>
       <button class="btn ghost" @click="clearAll">Pause / Clear</button>
@@ -132,7 +132,7 @@
     <table class="table">
       <thead><tr><th>ID</th><th>Type</th><th>Status</th><th>Action</th></tr></thead>
       <tbody>
-        <tr v-for="s in subs" :key="s.id">
+        {% raw %}<tr v-for="s in subs" :key="s.id">
           <td>{{ s.id }}</td>
           <td>{{ s.type }}</td>
           <td>{{ s.status }}</td>
@@ -140,7 +140,7 @@
             <button class="btn danger" @click="removeSub(s.id)">Delete</button>
             <button class="btn ghost" v-if="s.status==='error'" @click="retrySub(s.id)" style="margin-left:8px">Retry</button>
           </td>
-        </tr>
+        </tr>{% endraw %}
       </tbody>
     </table>
   </div>
@@ -162,13 +162,13 @@
     <table class="table">
       <thead><tr><th>Alias</th><th>Account Address</th><th>API Wallet</th><th>Active</th><th>Action</th></tr></thead>
       <tbody>
-        <tr v-for="a in accounts" :key="a.id">
+        {% raw %}<tr v-for="a in accounts" :key="a.id">
           <td>{{ a.alias }}</td>
           <td>{{ a.account_address }}</td>
           <td>{{ a.api_wallet_address }}</td>
           <td>{{ 'Yes' if a.is_active else 'No' }}</td>
           <td><button class="btn danger" @click="deleteAccount(a.alias)">Delete</button></td>
-        </tr>
+        </tr>{% endraw %}
       </tbody>
     </table>
   </div>
@@ -191,13 +191,13 @@
     <table class="table">
       <thead><tr><th>Key</th><th>Value</th><th>Type</th><th>Description</th><th>Action</th></tr></thead>
       <tbody>
-        <tr v-for="c in configs" :key="c.id">
+        {% raw %}<tr v-for="c in configs" :key="c.id">
           <td>{{ c.key }}</td>
           <td style="max-width:360px;overflow:auto">{{ c.value }}</td>
           <td>{{ c.config_type }}</td>
           <td>{{ c.description }}</td>
           <td><button class="btn danger" @click="deleteConfig(c.key)">Delete</button></td>
-        </tr>
+        </tr>{% endraw %}
       </tbody>
     </table>
   </div>

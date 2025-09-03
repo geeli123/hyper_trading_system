@@ -131,7 +131,7 @@
   </main>
 
   <!-- Notification Container -->
-  <div class="notifications">
+  {% raw %}<div class="notifications">
     <div 
       v-for="notification in notifications" 
       :key="notification.id"
@@ -142,7 +142,7 @@
       <span class="notification-text">{{ notification.message }}</span>
       <button class="notification-close" @click.stop="removeNotification(notification.id)">×</button>
     </div>
-  </div>
+  </div>{% endraw %}
 
   <script>
     // 设置初始 hash
