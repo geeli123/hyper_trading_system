@@ -1,8 +1,10 @@
 import logging
+import os
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 
 from core.subscription_manager import SubscriptionManager
+from database.session import Environment
 from utils.response import ApiResponse
 from .common import (
     SubscriptionRequest, get_subscription_manager
@@ -14,8 +16,12 @@ router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
 
 
 @router.get("/")
-async def get_all_subscriptions(subscription_manager: SubscriptionManager = Depends(get_subscription_manager)):
+async def get_all_subscriptions(response: Response, subscription_manager: SubscriptionManager = Depends(get_subscription_manager)):
     try:
+        # 添加环境信息到响应头
+        app_env = os.getenv("APP_ENV", Environment.dev)
+        response.headers["X-App-Env"] = app_env
+        
         subscriptions = subscription_manager.get_all_subscriptions()
         data = [
             {

@@ -112,7 +112,18 @@ class ApiClient {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
-            return await response.json();
+            const jsonData = await response.json();
+            
+            // 将响应头添加到返回对象中
+            const headers = {};
+            response.headers.forEach((value, key) => {
+                headers[key.toLowerCase()] = value;
+            });
+            
+            return {
+                ...jsonData,
+                headers: headers
+            };
         } catch (error) {
             console.error('API request failed:', error);
             return ApiResponse.error(error.message);

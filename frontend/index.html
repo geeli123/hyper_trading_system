@@ -41,6 +41,26 @@
             font-size: 0.875rem;
             margin-top: 0.25rem;
         }
+        .env-badge {
+            font-size: 0.6rem;
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.25rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .env-dev {
+            background-color: #28a745;
+            color: white;
+        }
+        .env-prod {
+            background-color: #dc3545;
+            color: white;
+        }
+        .env-default {
+            background-color: #6c757d;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -51,6 +71,9 @@
                 <h5 class="mb-4">
                     <i class="bi bi-graph-up"></i>
                     Trading System
+                    <span v-if="appEnv" class="env-badge ms-2" :class="getEnvBadgeClass(appEnv)">
+                        ({{ appEnv }})
+                    </span>
                 </h5>
                 <nav class="nav flex-column">
                     <a class="nav-link active" href="#" @click="switchPage('strategies')">

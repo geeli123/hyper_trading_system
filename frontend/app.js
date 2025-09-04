@@ -5,6 +5,7 @@ createApp({
         return {
             currentPage: 'strategies',
             apiBaseUrl: 'http://localhost:8000',
+            appEnv: '',  // 添加环境变量
             
             // Data storage
             subscriptions: [],
@@ -96,6 +97,12 @@ createApp({
             this.loading.subscriptions = true;
             try {
                 const response = await ApiClient.get(`${this.apiBaseUrl}/subscriptions/`);
+                
+                // 从响应头中获取环境信息
+                if (response.headers && response.headers['x-app-env']) {
+                    this.appEnv = response.headers['x-app-env'];
+                }
+                
                 ApiResponse.handle(response, 
                     (data) => {
                         this.subscriptions = data;
@@ -438,6 +445,17 @@ createApp({
                     return 'bg-danger';
                 default:
                     return 'bg-secondary';
+            }
+        },
+        
+        getEnvBadgeClass(env) {
+            switch (env?.toLowerCase()) {
+                case 'dev':
+                    return 'env-dev';
+                case 'prod':
+                    return 'env-prod';
+                default:
+                    return 'env-default';
             }
         },
         
