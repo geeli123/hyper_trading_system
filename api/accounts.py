@@ -13,7 +13,7 @@ router = APIRouter(prefix="/accounts", tags=["accounts"])
 
 class AccountIn(BaseModel):
     alias: str
-    api_wallet_address: str
+    account_address: str
     secret_key: str
     is_active: Optional[bool] = True
 
@@ -45,15 +45,15 @@ def upsert_account(payload: AccountIn):
         # derive account address from secret key
         derived_address = EthAccount.from_key(payload.secret_key).address
         if obj:
-            obj.account_address = derived_address
-            obj.api_wallet_address = payload.api_wallet_address
+            obj.account_address = payload.account_address
+            obj.api_wallet_address = derived_address
             obj.secret_key = payload.secret_key
             obj.is_active = payload.is_active if payload.is_active is not None else obj.is_active
         else:
             obj = Account(
                 alias=payload.alias,
-                account_address=derived_address,
-                api_wallet_address=payload.api_wallet_address,
+                account_address=payload.account_address,
+                api_wallet_address=derived_address,
                 secret_key=payload.secret_key,
                 is_active=payload.is_active if payload.is_active is not None else True,
             )
@@ -76,5 +76,3 @@ def delete_account(alias: str):
         return ApiResponse.success({"deleted": n})
     finally:
         db.close()
-
-

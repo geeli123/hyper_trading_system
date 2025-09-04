@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict
 
@@ -14,7 +16,7 @@ class StrategyRecordOut(BaseModel):
     subscription_type: str
     params: dict
     status: str
-    error_message: str
+    error_message: Optional[str]
     model_config = ConfigDict(from_attributes=True)
 
 

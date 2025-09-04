@@ -10,8 +10,6 @@ from enum import Enum
 from typing import Callable
 from typing import Dict, List, Optional, Any
 
-import eth_account
-
 logger = logging.getLogger(__name__)
 
 
@@ -82,7 +80,7 @@ class SubscriptionManager:
                             db.close()
                         if user_secret_key:
                             params = {**params, "user_secret_key": user_secret_key}
-                            params = {**params, "user": eth_account.Account.from_key(user_secret_key).address}
+                            params = {**params, "user": acc.account_address}
             except Exception as e:
                 logger.warning(f"Dynamic account resolution skipped: {e}")
 
@@ -106,9 +104,10 @@ class SubscriptionManager:
                 address, info, exchange = exchange_utils.setup(
                     skip_ws=False,
                     environment=self.environment,
-                    secret_key=params.get("user_secret_key")
+                    secret_key=params.get("user_secret_key"),
+                    account_address=target_user
                 )
-                strategy = self.strategy_factory(exchange, info, address, params.get("symbol"))
+                strategy = self.strategy_factory(exchange, info, address, params.get("coin"))
                 self._contexts[target_user] = {
                     'info': info,
                     'exchange': exchange,
@@ -118,13 +117,14 @@ class SubscriptionManager:
             ctx = self._contexts[target_user]
 
             # Subscribe to Hyperliquid under this context
-            subscription_id = ctx['info'].subscribe(params, ctx['strategy'].process_message)
-            subscription_info.subscription_id = subscription_id
+            subscription_id_1 = ctx['info'].subscribe({**params, "type": "candle"}, ctx['strategy'].process_message)
+            logger.info(f"Added subscription {subscription_id_1}: candle with params {params}")
+            subscription_id_2 = ctx['info'].subscribe({**params, "type": "userFills"}, ctx['strategy'].process_message)
+            logger.info(f"Added subscription {subscription_id_2}: userFills with params {params}")
+            subscription_info.subscription_id = subscription_id_1
 
             # Store subscription
             self.subscriptions[sub_id] = subscription_info
-
-            logger.info(f"Added subscription {sub_id}: {subscription_type} with params {params}")
 
             # Persist
             if self._SessionLocal and self._StrategyRecord:
