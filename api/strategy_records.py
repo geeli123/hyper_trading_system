@@ -2,14 +2,14 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Response
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from api.common import get_subscription_manager
 from core.subscription_manager import SubscriptionManager
 from database.models import StrategyRecord
-from database.session import SessionLocal
+from database.session import SessionLocal, APP_ENV
 from utils.response import ApiResponse
 
 router = APIRouter(prefix="/strategy-records", tags=["strategy-records"])
@@ -84,9 +84,13 @@ def _sanitize_strategy_record(record: StrategyRecord) -> dict:
 
 
 @router.get("/")
-def list_strategy_records(db: Session = Depends(get_db)):
+def list_strategy_records(response: Response, db: Session = Depends(get_db)):
     """获取所有策略记录"""
     items = db.query(StrategyRecord).order_by(StrategyRecord.id.desc()).limit(500).all()
+    
+    # 在响应头中添加环境信息
+    response.headers["X-App-Env"] = APP_ENV
+    
     return ApiResponse.success([_sanitize_strategy_record(i) for i in items])
 
 

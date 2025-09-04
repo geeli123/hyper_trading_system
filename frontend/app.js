@@ -105,6 +105,10 @@ createApp({
                 ApiResponse.handle(response,
                     (data) => {
                         this.strategyRecords = data;
+                        // 从响应头中获取环境信息
+                        if (response.headers && response.headers['x-app-env']) {
+                            this.appEnv = response.headers['x-app-env'];
+                        }
                     },
                     (error) => {
                         console.error('Failed to load strategy records:', error);

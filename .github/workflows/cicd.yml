@@ -1,0 +1,40 @@
+name: Deploy to Server via SSH
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  SERVER_IP: 34.66.45.136
+  SERVER_USER: ft1216
+  SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH and Run Commands
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ env.SERVER_SSH_KEY }}
+
+      - name: Execute ai Commands Over SSH
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ env.SERVER_USER }}@${{ env.SERVER_IP }} << 'EOF'
+            cd ~/hyper_trading_system
+            git pull
+            source .venv/bin/activate
+            python -m pip install -U pip
+            python -m pip install -r requirements.txt
+            pm2 restart 0
+          EOF

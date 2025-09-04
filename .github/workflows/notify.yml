@@ -1,0 +1,16 @@
+name: Notify
+
+on:
+  push:
+  pull_request:
+    types: [ opened, synchronize, reopened, closed ]
+
+jobs:
+  notice_start_job:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    name: notice start job
+    steps:
+      - name: Notify - Workflow Started
+        run: |
+          curl 'https://us-central1-alien-lattice-403320.cloudfunctions.net/server-change-notify?action=GitHub%20Code%20Push&env=${{ github.ref }}&name=${{ github.repository }}'
