@@ -8,20 +8,19 @@ createApp({
             appEnv: '',  // 添加环境变量
 
             // Data storage
-            subscriptions: [],
             strategyRecords: [],
             accounts: [],
             configs: [],
 
             // Loading states
             loading: {
-                subscriptions: false,
                 records: false,
                 accounts: false,
                 configs: false,
                 createStrategy: false,
                 createAccount: false,
-                createConfig: false
+                createConfig: false,
+                startingStrategy: {}  // Track loading state for each strategy by ID
             },
 
             // Form data
@@ -45,7 +44,11 @@ createApp({
             // Error messages
             createStrategyError: '',
             createAccountError: '',
-            createConfigError: ''
+            createConfigError: '',
+
+            // Strategy record editing
+            editingStrategy: null,
+            editStrategyError: ''
         };
     },
 
@@ -73,7 +76,6 @@ createApp({
 
             // Load corresponding data based on page
             if (page === 'strategies') {
-                this.loadSubscriptions();
                 this.loadStrategyRecords();
             } else if (page === 'accounts') {
                 this.loadAccounts();
@@ -85,40 +87,12 @@ createApp({
         // Load all data
         async loadAllData() {
             await Promise.all([
-                this.loadSubscriptions(),
                 this.loadStrategyRecords(),
                 this.loadAccounts(),
                 this.loadConfigs()
             ]);
         },
 
-        // Load subscription data
-        async loadSubscriptions() {
-            this.loading.subscriptions = true;
-            try {
-                const response = await ApiClient.get(`${this.apiBaseUrl}/subscriptions/`);
-
-                // 从响应头中获取环境信息
-                if (response.headers && response.headers['x-app-env']) {
-                    this.appEnv = response.headers['x-app-env'];
-                }
-
-                ApiResponse.handle(response,
-                    (data) => {
-                        this.subscriptions = data;
-                    },
-                    (error) => {
-                        console.error('Failed to load subscriptions:', error);
-                        this.showNotification(error, 'danger');
-                    }
-                );
-            } catch (error) {
-                console.error('Error loading subscriptions:', error);
-                this.showNotification('Error loading subscriptions', 'danger');
-            } finally {
-                this.loading.subscriptions = false;
-            }
-        },
 
         // Load strategy records
         async loadStrategyRecords() {
@@ -186,7 +160,7 @@ createApp({
             }
         },
 
-        // Create strategy
+        // Create strategy (只创建记录，不启动)
         async createStrategy() {
             this.createStrategyError = '';
 
@@ -200,16 +174,13 @@ createApp({
 
             try {
                 const payload = {
-                    type: 'candle',  // Assume strategy type is candle
-                    params: {
-                        coin: this.newStrategy.coin,
-                        interval: this.newStrategy.interval,
-                        account_alias: this.newStrategy.account_alias,
-                        strategy_name: this.newStrategy.name
-                    }
+                    name: this.newStrategy.name,
+                    coin: this.newStrategy.coin,
+                    interval: this.newStrategy.interval,
+                    account_alias: this.newStrategy.account_alias
                 };
 
-                const response = await ApiClient.post(`${this.apiBaseUrl}/subscriptions/`, payload);
+                const response = await ApiClient.post(`${this.apiBaseUrl}/strategy-records/`, payload);
 
                 ApiResponse.handle(response,
                     (data) => {
@@ -226,7 +197,6 @@ createApp({
                         modal.hide();
 
                         // Refresh data
-                        this.loadSubscriptions();
                         this.loadStrategyRecords();
 
                         this.showNotification('Strategy created successfully', 'success');
@@ -243,49 +213,6 @@ createApp({
             }
         },
 
-        // Retry subscription
-        async retrySubscription(subscriptionId) {
-            try {
-                const response = await ApiClient.post(`${this.apiBaseUrl}/subscriptions/${subscriptionId}/retry`);
-
-                ApiResponse.handle(response,
-                    (data) => {
-                        this.loadSubscriptions();
-                        this.showNotification('Strategy retried successfully', 'success');
-                    },
-                    (error) => {
-                        this.showNotification(error, 'danger');
-                    }
-                );
-            } catch (error) {
-                console.error('Error retrying subscription:', error);
-                this.showNotification('Error occurred while retrying', 'danger');
-            }
-        },
-
-        // Delete subscription
-        async deleteSubscription(subscriptionId) {
-            if (!confirm('Are you sure you want to delete this strategy?')) {
-                return;
-            }
-
-            try {
-                const response = await ApiClient.delete(`${this.apiBaseUrl}/subscriptions/${subscriptionId}`);
-
-                ApiResponse.handle(response,
-                    (data) => {
-                        this.loadSubscriptions();
-                        this.showNotification('Strategy deleted successfully', 'success');
-                    },
-                    (error) => {
-                        this.showNotification(error, 'danger');
-                    }
-                );
-            } catch (error) {
-                console.error('Error deleting subscription:', error);
-                this.showNotification('Error occurred while deleting', 'danger');
-            }
-        },
 
         // Create account
         async createAccount() {
@@ -424,13 +351,151 @@ createApp({
             }
         },
 
+        // Strategy record management
+        async startStrategyRecord(strategyId) {
+            // Set loading state for this specific strategy
+            this.loading.startingStrategy[strategyId] = true;
+            
+            try {
+                const response = await ApiClient.post(`${this.apiBaseUrl}/strategy-records/${strategyId}/start`);
+
+                ApiResponse.handle(response,
+                    (data) => {
+                        this.loadStrategyRecords();
+                        this.showNotification('Strategy started successfully', 'success');
+                    },
+                    (error) => {
+                        this.showNotification(error, 'danger');
+                    }
+                );
+            } catch (error) {
+                console.error('Error starting strategy:', error);
+                this.showNotification('Error occurred while starting strategy', 'danger');
+            } finally {
+                // Clear loading state
+                this.loading.startingStrategy[strategyId] = false;
+            }
+        },
+
+        async stopStrategyRecord(strategyId) {
+            if (!confirm('Are you sure you want to stop this strategy?')) {
+                return;
+            }
+
+            try {
+                const response = await ApiClient.post(`${this.apiBaseUrl}/strategy-records/${strategyId}/stop`);
+
+                ApiResponse.handle(response,
+                    (data) => {
+                        this.loadStrategyRecords();
+                        this.showNotification('Strategy stopped successfully', 'success');
+                    },
+                    (error) => {
+                        this.showNotification(error, 'danger');
+                    }
+                );
+            } catch (error) {
+                console.error('Error stopping strategy:', error);
+                this.showNotification('Error occurred while stopping strategy', 'danger');
+            }
+        },
+
+        async deleteStrategyRecord(strategyId) {
+            if (!confirm('Are you sure you want to delete this strategy record?')) {
+                return;
+            }
+
+            try {
+                const response = await ApiClient.delete(`${this.apiBaseUrl}/strategy-records/${strategyId}`);
+
+                ApiResponse.handle(response,
+                    (data) => {
+                        this.loadStrategyRecords();
+                        this.showNotification('Strategy record deleted successfully', 'success');
+                    },
+                    (error) => {
+                        this.showNotification(error, 'danger');
+                    }
+                );
+            } catch (error) {
+                console.error('Error deleting strategy record:', error);
+                this.showNotification('Error occurred while deleting strategy record', 'danger');
+            }
+        },
+
+        // Edit strategy record
+        editStrategyRecord(strategy) {
+            this.editingStrategy = {
+                id: strategy.id,
+                name: strategy.name,
+                coin: strategy.coin,
+                interval: strategy.interval,
+                account_alias: strategy.account_alias
+            };
+            this.editStrategyError = '';
+        },
+
+        async updateStrategyRecord() {
+            this.editStrategyError = '';
+
+            if (!this.editingStrategy.name || !this.editingStrategy.coin ||
+                !this.editingStrategy.interval || !this.editingStrategy.account_alias) {
+                this.editStrategyError = 'Please fill in all required fields';
+                return;
+            }
+
+            try {
+                const payload = {
+                    name: this.editingStrategy.name,
+                    coin: this.editingStrategy.coin,
+                    interval: this.editingStrategy.interval,
+                    account_alias: this.editingStrategy.account_alias
+                };
+
+                const response = await ApiClient.put(`${this.apiBaseUrl}/strategy-records/${this.editingStrategy.id}`, payload);
+
+                ApiResponse.handle(response,
+                    (data) => {
+                        // Close modal
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('editStrategyModal'));
+                        modal.hide();
+
+                        // Reset editing state
+                        this.editingStrategy = null;
+
+                        // Refresh data
+                        this.loadStrategyRecords();
+
+                        this.showNotification('Strategy record updated successfully', 'success');
+                    },
+                    (error) => {
+                        this.editStrategyError = error;
+                    }
+                );
+            } catch (error) {
+                console.error('Error updating strategy record:', error);
+                this.editStrategyError = 'Error occurred while updating strategy record';
+            }
+        },
+
+        cancelEditStrategy() {
+            this.editingStrategy = null;
+            this.editStrategyError = '';
+        },
+
         // Utility methods
         formatParams(params) {
             if (!params) return '';
             if (typeof params === 'string') return params;
-            return Object.entries(params)
+            
+            // Filter out sensitive information
+            const sensitiveKeys = ['user_secret_key', 'secret_key', 'private_key'];
+            const filteredParams = Object.entries(params)
+                .filter(([key]) => !sensitiveKeys.includes(key))
                 .map(([key, value]) => `${key}: ${value}`)
                 .join(', ');
+            
+            return filteredParams;
         },
 
         getStatusClass(status) {

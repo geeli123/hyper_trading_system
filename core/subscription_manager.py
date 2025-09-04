@@ -126,26 +126,8 @@ class SubscriptionManager:
             # Store subscription
             self.subscriptions[sub_id] = subscription_info
 
-            # Persist
-            if self._SessionLocal and self._StrategyRecord:
-                try:
-                    db = self._SessionLocal()
-                    rec = self._StrategyRecord(
-                        subscription_id=sub_id,
-                        subscription_type=subscription_type,
-                        params=params,
-                        status=subscription_info.status.value,
-                        error_message=None,
-                    )
-                    db.add(rec)
-                    db.commit()
-                except Exception as e:
-                    logger.error(f"Persist add_subscription failed: {e}")
-                finally:
-                    try:
-                        db.close()
-                    except Exception:
-                        pass
+            # Note: Strategy record persistence is now handled by the API layer
+            # No longer creating duplicate records here
             return sub_id
 
         except Exception as e:
@@ -156,23 +138,6 @@ class SubscriptionManager:
         """Remove a subscription"""
         if sub_id not in self.subscriptions:
             logger.warning(f"Subscription {sub_id} not found")
-            # Persist status=removed
-            if self._SessionLocal and self._StrategyRecord:
-                try:
-                    db = self._SessionLocal()
-                    rec = db.query(self._StrategyRecord).filter_by(subscription_id=sub_id).order_by(
-                        self._StrategyRecord.id.desc()).first()
-                    if rec:
-                        rec.status = "removed"
-                        rec.updated_at = __import__('datetime').datetime.utcnow()
-                        db.commit()
-                except Exception as e:
-                    logger.error(f"Persist remove_subscription failed: {e}")
-                finally:
-                    try:
-                        db.close()
-                    except Exception:
-                        pass
             return False
 
         subscription = self.subscriptions[sub_id]
