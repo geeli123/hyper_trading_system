@@ -4,7 +4,7 @@ createApp({
     data() {
         return {
             currentPage: 'strategies',
-            apiBaseUrl: 'http://localhost:8000',
+            apiBaseUrl: window.location.origin,  // use current host (protocol + host + optional port)
             appEnv: '',  // 添加环境变量
 
             // Data storage
@@ -362,7 +362,7 @@ createApp({
         async startStrategyRecord(strategyId) {
             // Set loading state for this specific strategy
             this.loading.startingStrategy[strategyId] = true;
-            
+
             try {
                 const response = await ApiClient.post(`${this.apiBaseUrl}/strategy-records/${strategyId}/start`);
 
@@ -499,14 +499,14 @@ createApp({
         formatParams(params) {
             if (!params) return '';
             if (typeof params === 'string') return params;
-            
+
             // Filter out sensitive information
             const sensitiveKeys = ['user_secret_key', 'secret_key', 'private_key'];
             const filteredParams = Object.entries(params)
                 .filter(([key]) => !sensitiveKeys.includes(key))
                 .map(([key, value]) => `${key}: ${value}`)
                 .join(', ');
-            
+
             return filteredParams;
         },
 
