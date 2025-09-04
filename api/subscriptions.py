@@ -16,12 +16,13 @@ router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
 
 
 @router.get("/")
-async def get_all_subscriptions(response: Response, subscription_manager: SubscriptionManager = Depends(get_subscription_manager)):
+async def get_all_subscriptions(response: Response,
+                                subscription_manager: SubscriptionManager = Depends(get_subscription_manager)):
     try:
         # 添加环境信息到响应头
         app_env = os.getenv("APP_ENV", Environment.dev)
         response.headers["X-App-Env"] = app_env
-        
+
         subscriptions = subscription_manager.get_all_subscriptions()
         data = [
             {
@@ -141,7 +142,8 @@ async def get_subscription_stats(subscription_manager: SubscriptionManager = Dep
 
 
 @router.post("/{subscription_id}/retry")
-async def retry_subscription(subscription_id: str, subscription_manager: SubscriptionManager = Depends(get_subscription_manager)):
+async def retry_subscription(subscription_id: str,
+                             subscription_manager: SubscriptionManager = Depends(get_subscription_manager)):
     try:
         existing = subscription_manager.get_subscription(subscription_id)
         if not existing:

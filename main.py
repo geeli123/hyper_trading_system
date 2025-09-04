@@ -42,8 +42,8 @@ app.add_middleware(
 app.add_middleware(GlobalExceptionHandler)
 setup_exception_handlers(app)
 
-subscription_manager = SubscriptionManager(strategy_factory=strategy_factory,
-                                           environment=os.getenv("APP_ENV", Environment.dev))
+env = os.getenv("APP_ENV", Environment.dev)
+subscription_manager = SubscriptionManager(strategy_factory=strategy_factory, environment=env)
 set_subscription_manager(subscription_manager)
 
 app.include_router(system_router.router)
@@ -56,7 +56,7 @@ app.include_router(strategy_records_router.router)
 # 添加静态文件服务
 app.mount("/", StaticFiles(directory="frontend", html=True), name="static")
 
-logger.info("Trading system initialized successfully (lazy contexts)!")
+logger.info(f"Trading system initialized successfully (lazy contexts)!, current evn: {env}")
 
 
 @asynccontextmanager

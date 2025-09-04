@@ -150,15 +150,7 @@ class SubscriptionManager:
 
         except Exception as e:
             logger.error(f"Failed to add subscription {sub_id}: {e}")
-            subscription_info = SubscriptionInfo(
-                id=sub_id,
-                type=subscription_type,
-                params=params,
-                status=SubscriptionStatus.ERROR,
-                error_message=str(e)
-            )
-            self.subscriptions[sub_id] = subscription_info
-            return sub_id
+            raise RuntimeError(e.args[0])
 
     def remove_subscription(self, sub_id: str) -> bool:
         """Remove a subscription"""
