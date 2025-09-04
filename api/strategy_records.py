@@ -94,7 +94,20 @@ def create_strategy_record(request: StrategyRecordCreate, db: Session = Depends(
         account = db.query(Account).filter_by(alias=request.account_alias).first()
         if not account:
             raise HTTPException(status_code=400, detail=f"Account alias '{request.account_alias}' not found")
-
+        
+        # 检查是否已存在相同的coin+interval+account_alias组合
+        existing_strategy = db.query(StrategyRecord).filter_by(
+            coin=request.coin,
+            interval=request.interval,
+            account_alias=request.account_alias
+        ).first()
+        
+        if existing_strategy:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Strategy with coin '{request.coin}', interval '{request.interval}' and account '{request.account_alias}' already exists"
+            )
+        
         # 创建策略记录
         strategy_record = StrategyRecord(
             name=request.name,
@@ -143,6 +156,28 @@ def update_strategy_record(strategy_id: int, request: StrategyRecordUpdate, db: 
 
         # 更新字段
         update_data = request.model_dump(exclude_unset=True)
+        
+        # 准备新的值（如果没有更新则使用现有值）
+        new_coin = update_data.get('coin', strategy.coin)
+        new_interval = update_data.get('interval', strategy.interval)
+        new_account_alias = update_data.get('account_alias', strategy.account_alias)
+        
+        # 检查更新后的组合是否与其他策略重复
+        if new_coin or new_interval or new_account_alias:
+            existing_strategy = db.query(StrategyRecord).filter(
+                StrategyRecord.coin == new_coin,
+                StrategyRecord.interval == new_interval,
+                StrategyRecord.account_alias == new_account_alias,
+                StrategyRecord.id != strategy_id  # 排除当前策略本身
+            ).first()
+            
+            if existing_strategy:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Strategy with coin '{new_coin}', interval '{new_interval}' and account '{new_account_alias}' already exists"
+                )
+        
+        # 应用更新
         for field, value in update_data.items():
             if field == "account_alias" and value:
                 # 检查账户别名是否存在
