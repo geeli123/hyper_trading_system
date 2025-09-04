@@ -57,19 +57,21 @@ class SubscriptionManager:
         self._subscription_counter += 1
         return f"sub_{self._subscription_counter}"
 
-    def add_subscription(self, subscription_type: str, params: Dict[str, Any]) -> str:
-        """Add a new subscription"""
-        sub_id = self._generate_subscription_id()
-
+    def add_strategy_subscriptions(self, strategy_params: Dict[str, Any]) -> Dict[str, str]:
+        """Add subscriptions for a strategy (both candle and userFills)
+        
+        Returns:
+            Dict containing subscription IDs: {"candle": "sub_1", "userFills": "sub_2"}
+        """
         try:
             # Resolve dynamic account alias to concrete address for 'user' fields
             try:
                 from database.session import SessionLocal  # type: ignore
                 from database.models import Account  # type: ignore
-                if params is not None:
-                    account_alias = params.get("account_alias")
+                if strategy_params is not None:
+                    account_alias = strategy_params.get("account_alias")
                     # If stream requires a user and not provided, map alias/address to 'user'
-                    if account_alias and ("user" not in params):
+                    if account_alias and ("user" not in strategy_params):
                         user_secret_key = None
                         db = SessionLocal()
                         try:
@@ -79,21 +81,13 @@ class SubscriptionManager:
                         finally:
                             db.close()
                         if user_secret_key:
-                            params = {**params, "user_secret_key": user_secret_key}
-                            params = {**params, "user": acc.account_address}
+                            strategy_params = {**strategy_params, "user_secret_key": user_secret_key}
+                            strategy_params = {**strategy_params, "user": acc.account_address}
             except Exception as e:
                 logger.warning(f"Dynamic account resolution skipped: {e}")
 
-            # Create subscription info
-            subscription_info = SubscriptionInfo(
-                id=sub_id,
-                type=subscription_type,
-                params=params,
-                status=SubscriptionStatus.ACTIVE
-            )
-
             # Ensure per-account context
-            target_user = params.get("user")
+            target_user = strategy_params.get("user")
             if not target_user:
                 raise ValueError("Missing 'user' in params; provide account_alias or account_address to resolve")
 
@@ -101,6 +95,76 @@ class SubscriptionManager:
                 # Build context for this user
                 from utils import exchange_utils  # local import
                 # pull secret_key/api wallet from Account/Config inside setup
+                address, info, exchange = exchange_utils.setup(
+                    skip_ws=False,
+                    environment=self.environment,
+                    secret_key=strategy_params.get("user_secret_key"),
+                    account_address=target_user
+                )
+                strategy = self.strategy_factory(exchange, info, address, strategy_params.get("coin"))
+                self._contexts[target_user] = {
+                    'info': info,
+                    'exchange': exchange,
+                    'strategy': strategy,
+                }
+
+            ctx = self._contexts[target_user]
+
+            # Create both subscriptions for this strategy
+            subscription_ids = {}
+            
+            # Create candle subscription
+            candle_sub_id = self._generate_subscription_id()
+            candle_params = {**strategy_params, "type": "candle"}
+            candle_hyperliquid_id = ctx['info'].subscribe(candle_params, ctx['strategy'].process_message)
+            
+            candle_subscription = SubscriptionInfo(
+                id=candle_sub_id,
+                type="candle",
+                params=candle_params,
+                status=SubscriptionStatus.ACTIVE,
+                subscription_id=candle_hyperliquid_id
+            )
+            self.subscriptions[candle_sub_id] = candle_subscription
+            subscription_ids["candle"] = candle_sub_id
+            logger.info(f"Added candle subscription {candle_sub_id} (HL ID: {candle_hyperliquid_id})")
+            
+            # Create userFills subscription
+            userfills_sub_id = self._generate_subscription_id()
+            userfills_params = {**strategy_params, "type": "userFills"}
+            userfills_hyperliquid_id = ctx['info'].subscribe(userfills_params, ctx['strategy'].process_message)
+            
+            userfills_subscription = SubscriptionInfo(
+                id=userfills_sub_id,
+                type="userFills",
+                params=userfills_params,
+                status=SubscriptionStatus.ACTIVE,
+                subscription_id=userfills_hyperliquid_id
+            )
+            self.subscriptions[userfills_sub_id] = userfills_subscription
+            subscription_ids["userFills"] = userfills_sub_id
+            logger.info(f"Added userFills subscription {userfills_sub_id} (HL ID: {userfills_hyperliquid_id})")
+
+            return subscription_ids
+
+        except Exception as e:
+            logger.error(f"Failed to add strategy subscriptions: {e}")
+            raise RuntimeError(e.args[0])
+
+    def add_subscription(self, subscription_type: str, params: Dict[str, Any]) -> str:
+        """Add a single subscription (legacy method for compatibility)"""
+        # This method is kept for backward compatibility but should be deprecated
+        # in favor of add_strategy_subscriptions for strategy-related subscriptions
+        sub_id = self._generate_subscription_id()
+
+        try:
+            # Resolve user information
+            target_user = params.get("user")
+            if not target_user:
+                raise ValueError("Missing 'user' in params; provide account_alias or account_address to resolve")
+
+            if target_user not in self._contexts:
+                from utils import exchange_utils
                 address, info, exchange = exchange_utils.setup(
                     skip_ws=False,
                     environment=self.environment,
@@ -115,27 +179,48 @@ class SubscriptionManager:
                 }
 
             ctx = self._contexts[target_user]
+            
+            # Subscribe to Hyperliquid
+            hyperliquid_subscription_id = ctx['info'].subscribe(params, ctx['strategy'].process_message)
+            
+            subscription_info = SubscriptionInfo(
+                id=sub_id,
+                type=subscription_type,
+                params=params,
+                status=SubscriptionStatus.ACTIVE,
+                subscription_id=hyperliquid_subscription_id
+            )
 
-            # Subscribe to Hyperliquid under this context
-            subscription_id_1 = ctx['info'].subscribe({**params, "type": "candle"}, ctx['strategy'].process_message)
-            logger.info(f"Added subscription {subscription_id_1}: candle with params {params}")
-            subscription_id_2 = ctx['info'].subscribe({**params, "type": "userFills"}, ctx['strategy'].process_message)
-            logger.info(f"Added subscription {subscription_id_2}: userFills with params {params}")
-            subscription_info.subscription_id = subscription_id_1
-
-            # Store subscription
             self.subscriptions[sub_id] = subscription_info
-
-            # Note: Strategy record persistence is now handled by the API layer
-            # No longer creating duplicate records here
+            logger.info(f"Added single subscription {sub_id} (HL ID: {hyperliquid_subscription_id})")
+            
             return sub_id
 
         except Exception as e:
             logger.error(f"Failed to add subscription {sub_id}: {e}")
             raise RuntimeError(e.args[0])
 
+    def remove_strategy_subscriptions(self, subscription_ids: Dict[str, str]) -> bool:
+        """Remove all subscriptions for a strategy
+        
+        Args:
+            subscription_ids: Dict containing subscription IDs: {"candle": "sub_1", "userFills": "sub_2"}
+            
+        Returns:
+            True if all subscriptions were removed successfully, False otherwise
+        """
+        success = True
+        for sub_type, sub_id in subscription_ids.items():
+            if not self.remove_subscription(sub_id):
+                logger.error(f"Failed to remove {sub_type} subscription {sub_id}")
+                success = False
+            else:
+                logger.info(f"Removed {sub_type} subscription {sub_id}")
+        
+        return success
+
     def remove_subscription(self, sub_id: str) -> bool:
-        """Remove a subscription"""
+        """Remove a single subscription"""
         if sub_id not in self.subscriptions:
             logger.warning(f"Subscription {sub_id} not found")
             return False

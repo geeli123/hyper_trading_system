@@ -26,8 +26,11 @@ class StrategyRecord(Base):
     interval = Column(String, index=True)  # 时间间隔
     account_alias = Column(String, index=True)  # 账户别名
     is_running = Column(Boolean, default=False)  # 是否正在运行
-    subscription_id = Column(String, index=True, nullable=True)  # 运行时的订阅ID
-    subscription_type = Column(String, index=True, nullable=True)  # 订阅类型
+    candle_subscription_id = Column(String, index=True, nullable=True)  # candle订阅ID
+    userfills_subscription_id = Column(String, index=True, nullable=True)  # userFills订阅ID
+    # Keep old fields for backward compatibility
+    subscription_id = Column(String, index=True, nullable=True)  # 运行时的订阅ID (deprecated)
+    subscription_type = Column(String, index=True, nullable=True)  # 订阅类型 (deprecated)
     params = Column(JSON, nullable=True)  # 参数
     status = Column(String, index=True, default="created")  # 状态: created, running, stopped, error
     error_message = Column(Text, nullable=True)

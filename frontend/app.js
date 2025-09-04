@@ -48,7 +48,10 @@ createApp({
 
             // Strategy record editing
             editingStrategy: null,
-            editStrategyError: ''
+            editStrategyError: '',
+
+            // Expandable records state
+            expandedRecords: {}
         };
     },
 
@@ -481,6 +484,11 @@ createApp({
         cancelEditStrategy() {
             this.editingStrategy = null;
             this.editStrategyError = '';
+        },
+
+        // Toggle expand/collapse for strategy records
+        toggleExpand(recordId) {
+            this.expandedRecords[recordId] = !this.expandedRecords[recordId];
         },
 
         // Utility methods

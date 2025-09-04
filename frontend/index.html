@@ -61,6 +61,64 @@
             background-color: #6c757d;
             color: white;
         }
+        .dropdown-menu {
+            min-width: 280px;
+        }
+        .dropdown-item-text {
+            padding: 0.25rem 1rem;
+            font-size: 0.875rem;
+            white-space: normal;
+            word-wrap: break-word;
+        }
+        .dropdown-header {
+            padding: 0.5rem 1rem 0.25rem 1rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .expandable-row {
+            cursor: pointer;
+        }
+        .expandable-row:hover {
+            background-color: #f8f9fa;
+        }
+        .expanded-content {
+            background-color: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+        }
+        .expanded-content .card {
+            border: none;
+            margin-bottom: 0;
+        }
+        .expanded-content .card-body {
+            padding: 1rem;
+        }
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .detail-item:last-child {
+            border-bottom: none;
+        }
+        .detail-label {
+            font-weight: 600;
+            color: #495057;
+            min-width: 120px;
+        }
+        .detail-value {
+            color: #6c757d;
+            text-align: right;
+        }
+        .expand-icon {
+            transition: transform 0.2s ease;
+        }
+        .expand-icon.expanded {
+            transform: rotate(90deg);
+        }
     </style>
 </head>
 <body>
@@ -122,6 +180,7 @@
                                 <table class="table table-hover">
                                     <thead>
                                         <tr>
+                                            <th width="40"></th>
                                             <th>ID</th>
                                             <th>Strategy Name</th>
                                             <th>Coin</th>
@@ -133,57 +192,151 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <tr v-for="record in strategyRecords" :key="record.id">
-                                            <td>{{ record.id }}</td>
-                                            <td><strong>{{ record.name }}</strong></td>
-                                            <td>{{ record.coin }}</td>
-                                            <td>{{ record.interval }}</td>
-                                            <td>{{ record.account_alias }}</td>
-                                            <td>
-                                                <span v-if="record.is_running" class="badge bg-success">Running</span>
-                                                <span v-else class="badge bg-secondary">Stopped</span>
-                                            </td>
-                                            <td>
-                                                <span class="badge status-badge" :class="getStatusClass(record.status)">
-                                                    {{ record.status }}
-                                                </span>
-                                                <div v-if="record.error_message" class="text-danger small mt-1">
-                                                    {{ record.error_message }}
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div class="btn-group btn-group-sm" role="group">
-                                                    <button v-if="!record.is_running" 
-                                                            class="btn btn-outline-success" 
-                                                            @click="startStrategyRecord(record.id)"
-                                                            :disabled="loading.startingStrategy[record.id]"
-                                                            title="Start Strategy">
-                                                        <span v-if="loading.startingStrategy[record.id]" class="spinner-border spinner-border-sm me-1"></span>
-                                                        <i v-else class="bi bi-play-fill"></i>
-                                                    </button>
-                                                    <button v-if="record.is_running" 
-                                                            class="btn btn-outline-warning" 
-                                                            @click="stopStrategyRecord(record.id)"
-                                                            title="Stop Strategy">
-                                                        <i class="bi bi-stop-fill"></i>
-                                                    </button>
-                                                    <button v-if="!record.is_running" 
-                                                            class="btn btn-outline-primary" 
-                                                            @click="editStrategyRecord(record)"
-                                                            data-bs-toggle="modal" 
-                                                            data-bs-target="#editStrategyModal"
-                                                            title="Edit Strategy">
-                                                        <i class="bi bi-pencil"></i>
-                                                    </button>
-                                                    <button v-if="!record.is_running" 
-                                                            class="btn btn-outline-danger" 
-                                                            @click="deleteStrategyRecord(record.id)"
-                                                            title="Delete Strategy">
-                                                        <i class="bi bi-trash"></i>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
+                                        <template v-for="record in strategyRecords" :key="record.id">
+                                            <tr class="expandable-row" @click="toggleExpand(record.id)">
+                                                <td>
+                                                    <i class="bi bi-chevron-right expand-icon" 
+                                                       :class="{ 'expanded': expandedRecords[record.id] }"></i>
+                                                </td>
+                                                <td>{{ record.id }}</td>
+                                                <td><strong>{{ record.name }}</strong></td>
+                                                <td>{{ record.coin }}</td>
+                                                <td>{{ record.interval }}</td>
+                                                <td>{{ record.account_alias }}</td>
+                                                <td>
+                                                    <span v-if="record.is_running" class="badge bg-success">Running</span>
+                                                    <span v-else class="badge bg-secondary">Stopped</span>
+                                                </td>
+                                                <td>
+                                                    <span class="badge status-badge" :class="getStatusClass(record.status)">
+                                                        {{ record.status }}
+                                                    </span>
+                                                    <div v-if="record.error_message" class="text-danger small mt-1">
+                                                        {{ record.error_message }}
+                                                    </div>
+                                                </td>
+                                                <td @click.stop>
+                                                    <div class="btn-group btn-group-sm" role="group">
+                                                        <!-- Start/Stop Button -->
+                                                        <button v-if="!record.is_running" 
+                                                                class="btn btn-outline-success" 
+                                                                @click="startStrategyRecord(record.id)"
+                                                                :disabled="loading.startingStrategy[record.id]"
+                                                                title="Start Strategy">
+                                                            <span v-if="loading.startingStrategy[record.id]" class="spinner-border spinner-border-sm me-1"></span>
+                                                            <i v-else class="bi bi-play-fill"></i>
+                                                        </button>
+                                                        <button v-if="record.is_running" 
+                                                                class="btn btn-outline-warning" 
+                                                                @click="stopStrategyRecord(record.id)"
+                                                                title="Stop Strategy">
+                                                            <i class="bi bi-stop-fill"></i>
+                                                        </button>
+                                                        
+                                                        <!-- Edit Button -->
+                                                        <button v-if="!record.is_running" 
+                                                                class="btn btn-outline-primary" 
+                                                                @click="editStrategyRecord(record)"
+                                                                :disabled="loading.startingStrategy[record.id]"
+                                                                data-bs-toggle="modal" 
+                                                                data-bs-target="#editStrategyModal"
+                                                                title="Edit Strategy">
+                                                            <span v-if="loading.startingStrategy[record.id]" class="spinner-border spinner-border-sm me-1"></span>
+                                                            <i v-else class="bi bi-pencil"></i>
+                                                        </button>
+                                                        
+                                                        <!-- Delete Button -->
+                                                        <button v-if="!record.is_running" 
+                                                                class="btn btn-outline-danger" 
+                                                                @click="deleteStrategyRecord(record.id)"
+                                                                :disabled="loading.startingStrategy[record.id]"
+                                                                title="Delete Strategy">
+                                                            <span v-if="loading.startingStrategy[record.id]" class="spinner-border spinner-border-sm me-1"></span>
+                                                            <i v-else class="bi bi-trash"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <!-- Expanded Content Row -->
+                                            <tr v-if="expandedRecords[record.id]" class="expanded-content">
+                                                <td colspan="9">
+                                                    <div class="card">
+                                                        <div class="card-body">
+                                                            <div class="row">
+                                                                <div class="col-md-6">
+                                                                    <h6 class="card-title">
+                                                                        <i class="bi bi-info-circle text-primary me-2"></i>
+                                                                        Strategy Details
+                                                                    </h6>
+                                                                    <div class="detail-item">
+                                                                        <span class="detail-label">Strategy Name:</span>
+                                                                        <span class="detail-value">{{ record.name }}</span>
+                                                                    </div>
+                                                                    <div class="detail-item">
+                                                                        <span class="detail-label">Status:</span>
+                                                                        <span class="detail-value">
+                                                                            <span class="badge status-badge" :class="getStatusClass(record.status)">
+                                                                                {{ record.status }}
+                                                                            </span>
+                                                                        </span>
+                                                                    </div>
+                                                                    <div class="detail-item">
+                                                                        <span class="detail-label">Currency:</span>
+                                                                        <span class="detail-value">{{ record.coin }}</span>
+                                                                    </div>
+                                                                    <div class="detail-item">
+                                                                        <span class="detail-label">Interval:</span>
+                                                                        <span class="detail-value">{{ record.interval }}</span>
+                                                                    </div>
+                                                                    <div class="detail-item">
+                                                                        <span class="detail-label">Account:</span>
+                                                                        <span class="detail-value">{{ record.account_alias }}</span>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="col-md-6">
+                                                                    <h6 class="card-title">
+                                                                        <i class="bi bi-broadcast text-success me-2"></i>
+                                                                        Subscriptions
+                                                                    </h6>
+                                                                    <div class="detail-item" v-if="record.candle_subscription_id">
+                                                                        <span class="detail-label">
+                                                                            <i class="bi bi-bar-chart-line text-primary me-1"></i>
+                                                                            Candle:
+                                                                        </span>
+                                                                        <span class="detail-value">
+                                                                            <code>{{ record.candle_subscription_id }}</code>
+                                                                        </span>
+                                                                    </div>
+                                                                    <div class="detail-item" v-if="record.userfills_subscription_id">
+                                                                        <span class="detail-label">
+                                                                            <i class="bi bi-receipt text-success me-1"></i>
+                                                                            UserFills:
+                                                                        </span>
+                                                                        <span class="detail-value">
+                                                                            <code>{{ record.userfills_subscription_id }}</code>
+                                                                        </span>
+                                                                    </div>
+                                                                    <div class="detail-item" v-if="!record.candle_subscription_id && !record.userfills_subscription_id">
+                                                                        <span class="detail-label text-muted">
+                                                                            <i class="bi bi-dash-circle me-1"></i>
+                                                                            Subscriptions:
+                                                                        </span>
+                                                                        <span class="detail-value text-muted">No active subscriptions</span>
+                                                                    </div>
+                                                                    <div class="detail-item" v-if="record.error_message">
+                                                                        <span class="detail-label text-danger">
+                                                                            <i class="bi bi-exclamation-triangle me-1"></i>
+                                                                            Error:
+                                                                        </span>
+                                                                        <span class="detail-value text-danger">{{ record.error_message }}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </template>
                                     </tbody>
                                 </table>
                             </div>

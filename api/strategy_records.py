@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 from typing import Optional
 
@@ -12,6 +13,7 @@ from database.session import SessionLocal
 from utils.response import ApiResponse
 
 router = APIRouter(prefix="/strategy-records", tags=["strategy-records"])
+logger = logging.getLogger(__name__)
 
 
 class StrategyRecordCreate(BaseModel):
@@ -35,6 +37,9 @@ class StrategyRecordOut(BaseModel):
     interval: Optional[str] = None
     account_alias: Optional[str] = None
     is_running: Optional[bool] = False
+    candle_subscription_id: Optional[str] = None
+    userfills_subscription_id: Optional[str] = None
+    # Keep old fields for backward compatibility
     subscription_id: Optional[str] = None
     subscription_type: Optional[str] = None
     params: Optional[dict] = None
@@ -255,14 +260,17 @@ def start_strategy_record(strategy_id: int,
             "user_secret_key": account.secret_key  # 添加用户私钥
         }
 
-        # 创建订阅 - 这会同时创建candle和userFills两个订阅
-        subscription_id = subscription_manager.add_subscription("candle", params)
-
+        # 创建策略订阅 - 这会同时创建candle和userFills两个订阅
+        subscription_ids = subscription_manager.add_strategy_subscriptions(params)
+        
         # 更新策略记录状态
         strategy.is_running = True
         strategy.status = "running"
-        strategy.subscription_id = subscription_id
-        strategy.subscription_type = "candle"
+        strategy.candle_subscription_id = subscription_ids["candle"]
+        strategy.userfills_subscription_id = subscription_ids["userFills"]
+        # Keep backward compatibility
+        strategy.subscription_id = subscription_ids["candle"]  # Use candle as primary for compatibility
+        strategy.subscription_type = "strategy"
         strategy.params = params
         strategy.error_message = None
         strategy.updated_at = datetime.utcnow()
@@ -303,16 +311,29 @@ def stop_strategy_record(strategy_id: int,
         if not strategy.is_running:
             raise HTTPException(status_code=400, detail="Strategy is not running")
 
-        # 停止订阅
-        if strategy.subscription_id:
-            success = subscription_manager.remove_subscription(strategy.subscription_id)
+        # 停止所有订阅
+        subscription_ids = {}
+        if strategy.candle_subscription_id:
+            subscription_ids["candle"] = strategy.candle_subscription_id
+        if strategy.userfills_subscription_id:
+            subscription_ids["userFills"] = strategy.userfills_subscription_id
+        
+        # Fallback to old single subscription if new fields are not set
+        if not subscription_ids and strategy.subscription_id:
+            subscription_ids["legacy"] = strategy.subscription_id
+        
+        if subscription_ids:
+            success = subscription_manager.remove_strategy_subscriptions(subscription_ids)
             if not success:
-                # 即使停止订阅失败，也要更新数据库状态
-                pass
-
+                logger.warning(f"Failed to remove some subscriptions for strategy {strategy_id}")
+                # Continue with database update even if some subscriptions failed to remove
+        
         # 更新策略记录状态
         strategy.is_running = False
         strategy.status = "stopped"
+        strategy.candle_subscription_id = None
+        strategy.userfills_subscription_id = None
+        # Clear old fields too
         strategy.subscription_id = None
         strategy.subscription_type = None
         strategy.params = None
