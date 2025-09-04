@@ -16,7 +16,7 @@ async def root():
 
 
 @router.get("/status")
-async def get_system_status(subscription_manager = Depends(get_subscription_manager)):
+async def get_system_status(subscription_manager=Depends(get_subscription_manager)):
     try:
         ws_ready = subscription_manager.get_ws_ready_any()
         active_subscriptions = len(subscription_manager.get_active_subscriptions())
@@ -29,5 +29,3 @@ async def get_system_status(subscription_manager = Depends(get_subscription_mana
     except Exception as e:
         logger.error(f"Error getting system status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-

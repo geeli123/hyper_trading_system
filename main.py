@@ -10,7 +10,6 @@ from fastapi.staticfiles import StaticFiles
 from api import accounts as accounts_router
 from api import configs as configs_router
 from api import logs as logs_router
-from api import pages as pages_router
 from api import strategy_records as strategy_records_router
 from api import subscriptions as subscriptions_router
 from api import system as system_router
@@ -43,20 +42,19 @@ app.add_middleware(
 app.add_middleware(GlobalExceptionHandler)
 setup_exception_handlers(app)
 
-# Mount static files
-app.mount("/templates", StaticFiles(directory="templates", html=True), name="templates")
-
 subscription_manager = SubscriptionManager(strategy_factory=strategy_factory,
                                            environment=os.getenv("APP_ENV", Environment.dev))
 set_subscription_manager(subscription_manager)
 
-app.include_router(pages_router.router)
 app.include_router(system_router.router)
 app.include_router(subscriptions_router.router)
 app.include_router(configs_router.router)
 app.include_router(accounts_router.router)
 app.include_router(logs_router.router)
 app.include_router(strategy_records_router.router)
+
+# 添加静态文件服务
+app.mount("/", StaticFiles(directory="frontend", html=True), name="static")
 
 logger.info("Trading system initialized successfully (lazy contexts)!")
 

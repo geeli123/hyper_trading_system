@@ -26,7 +26,7 @@ class GlobalExceptionHandler(BaseHTTPMiddleware):
             if os.getenv('DEBUG', 'False').lower() == 'true':
                 detailed_error = f"{error_msg}\n\n堆栈跟踪:\n{error_traceback}"
             else:
-                detailed_error = "服务器内部错误，请稍后重试"
+                detailed_error = error_msg
             return JSONResponse(content=ApiResponse.error(message=detailed_error))
 
 
@@ -44,5 +44,5 @@ def setup_exception_handlers(app):
         if os.getenv('DEBUG', 'False').lower() == 'true':
             detailed_error = f"{error_msg}\n\n堆栈跟踪:\n{error_traceback}"
         else:
-            detailed_error = "服务器内部错误，请稍后重试"
+            detailed_error = error_msg
         return JSONResponse(content=ApiResponse.error(message=detailed_error))
