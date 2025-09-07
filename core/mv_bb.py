@@ -206,7 +206,7 @@ class MeanReversionBB:
             self.hl_exchange.order(
                 name=self.symbol,
                 is_buy=True,
-                sz=self._get_current_asset_quantity(),
+                sz=abs(self._get_current_asset_quantity()),
                 limit_px=round_values(
                     self.bollinger_bands.upper_band + (bb_range_half * self.stop_loss_multiplier),
                     self.max_decimals_px),
@@ -226,7 +226,7 @@ class MeanReversionBB:
             self.hl_exchange.order(
                 name=self.symbol,
                 is_buy=True,
-                sz=self._get_current_asset_quantity(),
+                sz=abs(self._get_current_asset_quantity()),
                 limit_px=round_values(
                     self.bollinger_bands.upper_band - (bb_range_half * self.take_profit_multiplier),
                     self.max_decimals_px),
@@ -365,7 +365,7 @@ class MeanReversionBB:
         self.hl_exchange.order(
             name=self.symbol,
             is_buy=is_buy,
-            sz=self._get_current_asset_quantity(),
+            sz=abs(self._get_current_asset_quantity()),
             limit_px=round_values(trigger_price, self.max_decimals_px),
             order_type=stop_order_type,
         )
@@ -390,7 +390,7 @@ class MeanReversionBB:
         self.hl_exchange.order(
             name=self.symbol,
             is_buy=is_buy,
-            sz=self._get_current_asset_quantity(),
+            sz=abs(self._get_current_asset_quantity()),
             limit_px=round_values(trigger_price, self.max_decimals_px),
             order_type=tp_order_type,
         )
