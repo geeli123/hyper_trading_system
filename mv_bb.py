@@ -1,3 +1,4 @@
+import logging
 from copy import copy
 from enum import Enum
 import datetime as dt
@@ -119,6 +120,8 @@ class MeanReversionBB:
 
         self.order_system.cancel_all_orders(self.symbol)
 
+        print(self.strategy_state)
+
         if self.strategy_state == MVBBState.NEUTRAL:
             self.hl_exchange.order(
                 name=self.symbol,
@@ -188,6 +191,8 @@ class MeanReversionBB:
 
             self.order_system.cancel_all_orders(self.symbol)
 
+            logging.info("PLACING NEW ORDERS")
+
             # Place a stop order
             stop_order_type = {
                 "trigger": {
@@ -202,7 +207,7 @@ class MeanReversionBB:
             self.hl_exchange.order(
                 name=self.symbol,
                 is_buy=True,
-                sz=self._get_current_asset_quantity(),
+                sz=abs(self._get_current_asset_quantity()),
                 limit_px=round_values(
                     self.bollinger_bands.upper_band + (bb_range_half * self.stop_loss_multiplier),
                     self.max_decimals_px),
@@ -222,7 +227,7 @@ class MeanReversionBB:
             self.hl_exchange.order(
                 name=self.symbol,
                 is_buy=True,
-                sz=self._get_current_asset_quantity(),
+                sz=abs(self._get_current_asset_quantity()),
                 limit_px=round_values(
                     self.bollinger_bands.upper_band - (bb_range_half * self.take_profit_multiplier),
                     self.max_decimals_px),
@@ -447,7 +452,7 @@ class MeanReversionBB:
                         self.hl_exchange.order(
                             name=self.symbol,
                             is_buy=True,
-                            sz=self._get_current_asset_quantity(),
+                            sz=abs(self._get_current_asset_quantity()),
                             limit_px=round_values(
                                 self.bollinger_bands.upper_band + (bb_range_half * self.stop_loss_multiplier),
                                 self.max_decimals_px),
@@ -467,7 +472,7 @@ class MeanReversionBB:
                         self.hl_exchange.order(
                             name=self.symbol,
                             is_buy=True,
-                            sz=self._get_current_asset_quantity(),
+                            sz=abs(self._get_current_asset_quantity()),
                             limit_px=round_values(
                                 self.bollinger_bands.upper_band - (bb_range_half * self.take_profit_multiplier),
                                 self.max_decimals_px),
