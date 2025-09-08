@@ -195,7 +195,7 @@
                                         <template v-for="record in strategyRecords" :key="record.id">
                                             <tr class="expandable-row" @click="toggleExpand(record.id)">
                                                 <td>
-                                                    <i class="bi bi-chevron-right expand-icon" 
+                                                    <i class="bi bi-chevron-right expand-icon"
                                                        :class="{ 'expanded': expandedRecords[record.id] }"></i>
                                                 </td>
                                                 <td>{{ record.id }}</td>
@@ -218,36 +218,36 @@
                                                 <td @click.stop>
                                                     <div class="btn-group btn-group-sm" role="group">
                                                         <!-- Start/Stop Button -->
-                                                        <button v-if="!record.is_running" 
-                                                                class="btn btn-outline-success" 
+                                                        <button v-if="!record.is_running"
+                                                                class="btn btn-outline-success"
                                                                 @click="startStrategyRecord(record.id)"
                                                                 :disabled="loading.startingStrategy[record.id]"
                                                                 title="Start Strategy">
                                                             <span v-if="loading.startingStrategy[record.id]" class="spinner-border spinner-border-sm me-1"></span>
                                                             <i v-else class="bi bi-play-fill"></i>
                                                         </button>
-                                                        <button v-if="record.is_running" 
-                                                                class="btn btn-outline-warning" 
+                                                        <button v-if="record.is_running"
+                                                                class="btn btn-outline-warning"
                                                                 @click="stopStrategyRecord(record.id)"
                                                                 title="Stop Strategy">
                                                             <i class="bi bi-stop-fill"></i>
                                                         </button>
-                                                        
+
                                                         <!-- Edit Button -->
-                                                        <button v-if="!record.is_running" 
-                                                                class="btn btn-outline-primary" 
+                                                        <button v-if="!record.is_running"
+                                                                class="btn btn-outline-primary"
                                                                 @click="editStrategyRecord(record)"
                                                                 :disabled="loading.startingStrategy[record.id]"
-                                                                data-bs-toggle="modal" 
+                                                                data-bs-toggle="modal"
                                                                 data-bs-target="#editStrategyModal"
                                                                 title="Edit Strategy">
                                                             <span v-if="loading.startingStrategy[record.id]" class="spinner-border spinner-border-sm me-1"></span>
                                                             <i v-else class="bi bi-pencil"></i>
                                                         </button>
-                                                        
+
                                                         <!-- Delete Button -->
-                                                        <button v-if="!record.is_running" 
-                                                                class="btn btn-outline-danger" 
+                                                        <button v-if="!record.is_running"
+                                                                class="btn btn-outline-danger"
                                                                 @click="deleteStrategyRecord(record.id)"
                                                                 :disabled="loading.startingStrategy[record.id]"
                                                                 title="Delete Strategy">
@@ -483,6 +483,7 @@
                                         v-model="newStrategy.coin" required>
                                     <option value="">Select Currency</option>
                                     <option value="ETH">ETH</option>
+                                    <option value="ETH">HYPE</option>
                                 </select>
                             </div>
                             <div class="mb-3">
@@ -543,6 +544,7 @@
                                         v-model="editingStrategy.coin" required>
                                     <option value="">Select Currency</option>
                                     <option value="ETH">ETH</option>
+                                    <option value="ETH">HYPE</option>
                                 </select>
                             </div>
                             <div class="mb-3">
