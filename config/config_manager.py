@@ -12,9 +12,14 @@ from database.session import SessionLocal, Environment, APP_ENV
 class ConfigManager:
     """配置管理器"""
     base_url = constants.TESTNET_API_URL if APP_ENV == Environment.dev else constants.MAINNET_API_URL
+    notify_url = 'https://open.larksuite.com/open-apis/bot/v2/hook/2919040d-45f9-4318-b236-ca20e320f5f8' \
+        if APP_ENV == Environment.dev else 'https://open.larksuite.com/open-apis/bot/v2/hook/c9023c12-d27a-4437-aff3-3d16fa5765ae'
     DEFAULT_CONFIGS = {
         'base_url': {'value': base_url, 'description': '当前访问域名',
-                             'config_type': 'string'},
+                     'config_type': 'string'},
+        'notify_url': {'value': notify_url, 'description': '当前通知地址',
+                       'config_type': 'string'},
+
     }
 
     # 存储需要刷新配置的服务实例
