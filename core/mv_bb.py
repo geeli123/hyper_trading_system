@@ -237,7 +237,7 @@ class MeanReversionBB:
         """
         Processes a new market event.
         """
-        print(self.order_system.get_open_orders(self.symbol))
+        print("get_open_orders: ", self.order_system.get_open_orders(self.symbol))
 
         if message['channel'] == 'candle':
             self._process_candle_message(message)
