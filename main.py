@@ -15,6 +15,7 @@ from api import system as system_router
 from api.common import set_subscription_manager
 from config.config_manager import ConfigManager
 from core import MeanReversionBB
+from core.strategy_restorer import StrategyRestorer
 from core.subscription_manager import SubscriptionManager
 from database.init_db import init_db
 from database.session import Environment
@@ -43,6 +44,7 @@ setup_exception_handlers(app)
 
 env = os.getenv("APP_ENV", Environment.dev)
 subscription_manager = SubscriptionManager(strategy_factory=strategy_factory, environment=env)
+strategy_restorer = StrategyRestorer(subscription_manager)
 set_subscription_manager(subscription_manager)
 
 app.include_router(system_router.router)
@@ -62,6 +64,11 @@ async def lifespan(app: FastAPI):
     init_db()
     # ensure default configs exist
     ConfigManager.init_default_configs()
+
+    # 恢复服务重启前的active策略
+    result = await strategy_restorer.restore_active_strategies()
+    logger.info(f"Strategy restoration result: {result}")
+
     yield
 
 
