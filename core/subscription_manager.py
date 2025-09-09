@@ -103,7 +103,7 @@ class SubscriptionManager:
                     secret_key=strategy_params.get("user_secret_key"),
                     account_address=target_user
                 )
-                strategy = self.strategy_factory(exchange, info, address, strategy_params.get("coin"))
+                strategy = self.strategy_factory(exchange, info, address, strategy_params.get("coin"), strategy_params.get("strategy_name", "MeanReversionBB"), strategy_params.get("account_alias"))
                 self._contexts[target_user] = {
                     'info': info,
                     'exchange': exchange,

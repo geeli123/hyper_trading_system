@@ -31,6 +31,8 @@ class MeanReversionBB:
             info: Info,
             address: str,
             symbol: str,
+            strategy_name: str = "MeanReversionBB",
+            account_alias: str = None,
             trade_size_usd: float = 12.0,
             ma_lookback_periods=20,
             bb_std_dev=2.5,
@@ -51,6 +53,8 @@ class MeanReversionBB:
         self.order_system = BasicOrderSystem(self.hl_info, self.hl_exchange, self.address)
 
         self.symbol = symbol
+        self.strategy_name = strategy_name
+        self.account_alias = account_alias
         self.bollinger_bands = BollingerBands(ma_lookback_periods, bb_std_dev)
         self.current_candle = None
         self.last_full_candle = None
@@ -280,7 +284,8 @@ class MeanReversionBB:
                         price_info=price_info,
                         symbol=self.symbol,
                         percent_change=price_change,
-                        strategy_name="MeanReversionBB"
+                        account_alias=self.account_alias,
+                        strategy_name=self.strategy_name
                     )
             
             self.last_price = self.current_candle.close
@@ -327,9 +332,10 @@ class MeanReversionBB:
 
         # Send strategy execution notification and log
         self.notification_logger.notify_and_log_strategy_execution(
-            strategy_name="MeanReversionBB",
+            strategy_name=self.strategy_name,
             symbol=self.symbol,
             action="PLACE_NEUTRAL_ORDERS",
+            account_alias=self.account_alias,
             details=f"Placing buy order at {self.bollinger_bands.lower_band:.4f} and sell order at {self.bollinger_bands.upper_band:.4f}",
             status="started"
         )
@@ -357,9 +363,10 @@ class MeanReversionBB:
         # Notify orders placed and log
         if buy_result.get("status") == "ok" and sell_result.get("status") == "ok":
             self.notification_logger.notify_and_log_strategy_execution(
-                strategy_name="MeanReversionBB",
+                strategy_name=self.strategy_name,
                 symbol=self.symbol,
                 action="PLACE_NEUTRAL_ORDERS",
+                account_alias=self.account_alias,
                 details="Both buy and sell limit orders placed successfully",
                 status="completed"
             )
@@ -459,7 +466,8 @@ class MeanReversionBB:
                 symbol=self.symbol,
                 token_symbol=self.symbol,
                 action_type='buy',
-                strategy_name="MeanReversionBB"
+                account_alias=self.account_alias,
+                strategy_name=self.strategy_name
             )
             self._setup_long_position()
         elif event.order.quantity < 0:
@@ -472,7 +480,8 @@ class MeanReversionBB:
                 symbol=self.symbol,
                 token_symbol=self.symbol,
                 action_type='sell',
-                strategy_name="MeanReversionBB"
+                account_alias=self.account_alias,
+                strategy_name=self.strategy_name
             )
             self._setup_short_position()
         else:
@@ -488,7 +497,8 @@ class MeanReversionBB:
             symbol=self.symbol,
             token_symbol=self.symbol,
             action_type='sell',
-            strategy_name="MeanReversionBB"
+            account_alias=self.account_alias,
+            strategy_name=self.strategy_name
         )
         self.strategy_state = MVBBState.NEUTRAL
         self.order_system.cancel_all_orders(self.symbol)
@@ -503,7 +513,8 @@ class MeanReversionBB:
             symbol=self.symbol,
             token_symbol=self.symbol,
             action_type='buy',
-            strategy_name="MeanReversionBB"
+            account_alias=self.account_alias,
+            strategy_name=self.strategy_name
         )
         self.strategy_state = MVBBState.NEUTRAL
         self.order_system.cancel_all_orders(self.symbol)

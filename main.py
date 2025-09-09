@@ -20,15 +20,14 @@ from core.subscription_manager import SubscriptionManager
 from database.init_db import init_db
 from database.session import Environment
 from utils.exception import GlobalExceptionHandler, setup_exception_handlers
-from utils.notification_logger import NotificationLogger
 
 # Set log level to DEBUG
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def strategy_factory(exchange, info, address, symbol):
-    return MeanReversionBB(exchange, info, address, symbol)
+def strategy_factory(exchange, info, address, symbol, strategy_name="MeanReversionBB", account_alias=None):
+    return MeanReversionBB(exchange, info, address, symbol, strategy_name, account_alias)
 
 
 app = FastAPI(title="Hyperliquid Trading System API",
@@ -65,10 +64,6 @@ async def lifespan(app: FastAPI):
     init_db()
     # ensure default configs exist
     ConfigManager.init_default_configs()
-
-    # Send startup notification and log
-    notification_logger = NotificationLogger()
-    notification_logger.notify_and_log_system_startup()
 
     # 恢复服务重启前的active策略
     result = await strategy_restorer.restore_active_strategies()
