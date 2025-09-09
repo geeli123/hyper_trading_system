@@ -283,17 +283,6 @@ def start_strategy_record(strategy_id: int,
         db.commit()
         db.refresh(strategy)
 
-        # Send strategy start notification and log
-        notification_logger = NotificationLogger()
-        notification_logger.notify_and_log_strategy_execution(
-            strategy_name=strategy.name,
-            symbol=strategy.coin,
-            action="START",
-            account_alias=strategy.account_alias,
-            details=f"Strategy started with {strategy.interval} interval",
-            status="started"
-        )
-
         return ApiResponse.success(_sanitize_strategy_record(strategy), "Strategy started successfully")
 
     except HTTPException:

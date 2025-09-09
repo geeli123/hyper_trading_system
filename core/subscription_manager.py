@@ -10,7 +10,7 @@ from enum import Enum
 from typing import Callable
 from typing import Dict, List, Optional, Any
 
-from utils.notifier import Notifier
+from utils.notification_logger import NotificationLogger
 
 logger = logging.getLogger(__name__)
 
@@ -147,11 +147,12 @@ class SubscriptionManager:
             subscription_ids["userFills"] = userfills_sub_id
             logger.info(f"Added userFills subscription {userfills_sub_id} (HL ID: {userfills_hyperliquid_id})")
 
-            # Send strategy start notification
-            Notifier().send_strategy_execution_notification(
+            # Send strategy start notification and log
+            NotificationLogger().notify_and_log_strategy_execution(
                 strategy_name=strategy_params.get("strategy_name", "UnknownStrategy"),
                 symbol=strategy_params.get("coin", "UnknownCoin"),
                 action="START",
+                account_alias=strategy_params.get("account_alias", "UnknownAccount"),
                 details=f"Strategy started with {strategy_params.get('interval', 'UnknownInterval')} interval",
                 status="started"
             )

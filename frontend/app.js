@@ -11,12 +11,17 @@ createApp({
             strategyRecords: [],
             accounts: [],
             configs: [],
+            logs: {
+                items: [],
+                pagination: null
+            },
 
             // Loading states
             loading: {
                 records: false,
                 accounts: false,
                 configs: false,
+                logs: false,
                 createStrategy: false,
                 createAccount: false,
                 createConfig: false,
@@ -48,6 +53,14 @@ createApp({
 
             // Strategy record editing
             editingStrategy: null,
+
+            // Logs related
+            currentStrategy: null,
+            logFilters: {
+                event_type: '',
+                level: '',
+                account_alias: ''
+            },
             editStrategyError: '',
 
             // Expandable records state
@@ -555,6 +568,104 @@ createApp({
                     notification.parentNode.removeChild(notification);
                 }
             }, 3000);
+        },
+
+        // Logs related methods
+        viewStrategyLogs(strategy) {
+            this.currentStrategy = strategy;
+            this.logFilters = {
+                event_type: '',
+                level: '',
+                account_alias: ''
+            };
+            this.loadStrategyLogs(1);
+        },
+
+        async loadStrategyLogs(page = 1) {
+            if (!this.currentStrategy) return;
+
+            this.loading.logs = true;
+
+            try {
+                const params = new URLSearchParams({
+                    page: page.toString(),
+                    page_size: '10'
+                });
+
+                // Add filters if they have values
+                if (this.logFilters.event_type) {
+                    params.append('event_type', this.logFilters.event_type);
+                }
+                if (this.logFilters.level) {
+                    params.append('level', this.logFilters.level);
+                }
+                if (this.logFilters.account_alias) {
+                    params.append('account_alias', this.logFilters.account_alias);
+                }
+
+                const response = await ApiClient.get(`${this.apiBaseUrl}/logs/strategy/${encodeURIComponent(this.currentStrategy.name)}?${params}`);
+
+                ApiResponse.handle(response,
+                    (data) => {
+                        this.logs = data;
+                    },
+                    (error) => {
+                        console.error('Error loading strategy logs:', error);
+                        this.showNotification('Failed to load strategy logs: ' + error, 'danger');
+                    }
+                );
+            } catch (error) {
+                console.error('Error loading strategy logs:', error);
+                this.showNotification('Error occurred while loading strategy logs', 'danger');
+            } finally {
+                this.loading.logs = false;
+            }
+        },
+
+        // Helper methods for logs
+        formatDateTime(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleString();
+        },
+
+        getLogLevelClass(level) {
+            switch (level) {
+                case 'ERROR':
+                    return 'bg-danger';
+                case 'WARNING':
+                    return 'bg-warning';
+                case 'INFO':
+                default:
+                    return 'bg-info';
+            }
+        },
+
+        getPageNumbers(pagination) {
+            if (!pagination) return [];
+            
+            const current = pagination.page;
+            const total = pagination.total_pages;
+            const pages = [];
+            
+            // Show max 5 page numbers
+            let start = Math.max(1, current - 2);
+            let end = Math.min(total, current + 2);
+            
+            // Adjust if we're near the beginning or end
+            if (end - start < 4) {
+                if (start === 1) {
+                    end = Math.min(total, start + 4);
+                } else if (end === total) {
+                    start = Math.max(1, end - 4);
+                }
+            }
+            
+            for (let i = start; i <= end; i++) {
+                pages.push(i);
+            }
+            
+            return pages;
         }
     }
 }).mount('#app');

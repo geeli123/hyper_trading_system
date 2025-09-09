@@ -254,6 +254,15 @@
                                                             <span v-if="loading.startingStrategy[record.id]" class="spinner-border spinner-border-sm me-1"></span>
                                                             <i v-else class="bi bi-trash"></i>
                                                         </button>
+
+                                                        <!-- Logs Button -->
+                                                        <button class="btn btn-outline-info"
+                                                                @click="viewStrategyLogs(record)"
+                                                                data-bs-toggle="modal"
+                                                                data-bs-target="#strategyLogsModal"
+                                                                title="View Logs">
+                                                            <i class="bi bi-file-text"></i>
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -661,6 +670,128 @@
                             <span v-if="loading.createConfig" class="spinner-border spinner-border-sm me-1"></span>
                             Add
                         </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Strategy Logs Modal -->
+        <div class="modal fade" id="strategyLogsModal" tabindex="-1">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Strategy Logs - {{ currentStrategy?.name }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Filters -->
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Event Type</label>
+                                <select v-model="logFilters.event_type" @change="loadStrategyLogs(1)" class="form-select form-select-sm">
+                                    <option value="">All Types</option>
+                                    <option value="SYSTEM_START">System Start</option>
+                                    <option value="STRATEGY_START">Strategy Start</option>
+                                    <option value="STRATEGY_STOP">Strategy Stop</option>
+                                    <option value="STRATEGY_EXECUTION">Strategy Execution</option>
+                                    <option value="TRADE">Trade</option>
+                                    <option value="PRICE_ALERT">Price Alert</option>
+                                    <option value="ERROR">Error</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Log Level</label>
+                                <select v-model="logFilters.level" @change="loadStrategyLogs(1)" class="form-select form-select-sm">
+                                    <option value="">All Levels</option>
+                                    <option value="INFO">Info</option>
+                                    <option value="WARNING">Warning</option>
+                                    <option value="ERROR">Error</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Account</label>
+                                <select v-model="logFilters.account_alias" @change="loadStrategyLogs(1)" class="form-select form-select-sm">
+                                    <option value="">All Accounts</option>
+                                    <option v-for="account in accounts" :key="account.alias" :value="account.alias">
+                                        {{ account.alias }}
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Loading State -->
+                        <div v-if="loading.logs" class="text-center py-4">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Loading logs...</span>
+                            </div>
+                        </div>
+
+                        <!-- Logs Table -->
+                        <div v-else-if="logs.items && logs.items.length > 0" class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Level</th>
+                                        <th>Event Type</th>
+                                        <th>Content</th>
+                                        <th>Account</th>
+                                        <th>Symbol</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="log in logs.items" :key="log.id">
+                                        <td>
+                                            <small>{{ formatDateTime(log.created_at) }}</small>
+                                        </td>
+                                        <td>
+                                            <span class="badge" :class="getLogLevelClass(log.level)">{{ log.level }}</span>
+                                        </td>
+                                        <td>
+                                            <small>{{ log.event_type }}</small>
+                                        </td>
+                                        <td>
+                                            <div>{{ log.event_content }}</div>
+                                            <div v-if="log.extra_data" class="small text-muted mt-1">
+                                                <details>
+                                                    <summary>Extra Data</summary>
+                                                    <pre class="small">{{ JSON.stringify(log.extra_data, null, 2) }}</pre>
+                                                </details>
+                                            </div>
+                                        </td>
+                                        <td><small>{{ log.account_alias || '-' }}</small></td>
+                                        <td><small>{{ log.symbol || '-' }}</small></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- No Logs -->
+                        <div v-else class="text-center py-4 text-muted">
+                            No logs found for this strategy
+                        </div>
+
+                        <!-- Pagination -->
+                        <nav v-if="logs.pagination && logs.pagination.total_pages > 1" class="mt-3">
+                            <ul class="pagination pagination-sm justify-content-center">
+                                <li class="page-item" :class="{ disabled: !logs.pagination.has_prev }">
+                                    <button class="page-link" @click="loadStrategyLogs(logs.pagination.page - 1)" :disabled="!logs.pagination.has_prev">
+                                        Previous
+                                    </button>
+                                </li>
+                                <li v-for="page in getPageNumbers(logs.pagination)" :key="page" class="page-item" :class="{ active: page === logs.pagination.page }">
+                                    <button class="page-link" @click="loadStrategyLogs(page)">{{ page }}</button>
+                                </li>
+                                <li class="page-item" :class="{ disabled: !logs.pagination.has_next }">
+                                    <button class="page-link" @click="loadStrategyLogs(logs.pagination.page + 1)" :disabled="!logs.pagination.has_next">
+                                        Next
+                                    </button>
+                                </li>
+                            </ul>
+                            <div class="text-center small text-muted">
+                                Showing {{ logs.pagination.page }} of {{ logs.pagination.total_pages }} pages ({{ logs.pagination.total }} total)
+                            </div>
+                        </nav>
                     </div>
                 </div>
             </div>
