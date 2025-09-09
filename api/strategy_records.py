@@ -10,7 +10,7 @@ from api.common import get_subscription_manager
 from core.subscription_manager import SubscriptionManager
 from database.models import StrategyRecord
 from database.session import SessionLocal, APP_ENV
-from utils.notifier import Notifier
+from utils.notification_logger import NotificationLogger
 from utils.response import ApiResponse
 
 router = APIRouter(prefix="/strategy-records", tags=["strategy-records"])
@@ -283,6 +283,17 @@ def start_strategy_record(strategy_id: int,
         db.commit()
         db.refresh(strategy)
 
+        # Send strategy start notification and log
+        notification_logger = NotificationLogger()
+        notification_logger.notify_and_log_strategy_execution(
+            strategy_name=strategy.name,
+            symbol=strategy.coin,
+            action="START",
+            account_alias=strategy.account_alias,
+            details=f"Strategy started with {strategy.interval} interval",
+            status="started"
+        )
+
         return ApiResponse.success(_sanitize_strategy_record(strategy), "Strategy started successfully")
 
     except HTTPException:
@@ -348,12 +359,13 @@ def stop_strategy_record(strategy_id: int,
         db.commit()
         db.refresh(strategy)
 
-        # Send strategy stop notification
-        notifier = Notifier()
-        notifier.send_strategy_execution_notification(
+        # Send strategy stop notification and log
+        notification_logger = NotificationLogger()
+        notification_logger.notify_and_log_strategy_execution(
             strategy_name=strategy.name,
             symbol=strategy.coin,
             action="STOP",
+            account_alias=strategy.account_alias,
             details="Strategy stopped by user",
             status="completed"
         )

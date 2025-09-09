@@ -57,8 +57,11 @@ class Log(Base):
     id = Column(Integer, primary_key=True, index=True)
     account_alias = Column(String, index=True)
     strategy_name = Column(String, index=True)
-    event_type = Column(String, index=True)
-    event_content = Column(Text)
+    symbol = Column(String, index=True)  # 交易对
+    event_type = Column(String, index=True)  # 事件类型：SYSTEM_START, STRATEGY_START, TRADE, PRICE_ALERT, ERROR
+    level = Column(String, index=True, default="INFO")  # 日志级别：INFO, WARNING, ERROR
+    event_content = Column(Text)  # 事件内容描述
+    extra_data = Column(JSON, nullable=True)  # 额外的结构化数据
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
