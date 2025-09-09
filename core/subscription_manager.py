@@ -10,6 +10,8 @@ from enum import Enum
 from typing import Callable
 from typing import Dict, List, Optional, Any
 
+from utils.notifier import Notifier
+
 logger = logging.getLogger(__name__)
 
 
@@ -59,7 +61,7 @@ class SubscriptionManager:
 
     def add_strategy_subscriptions(self, strategy_params: Dict[str, Any]) -> Dict[str, str]:
         """Add subscriptions for a strategy (both candle and userFills)
-        
+
         Returns:
             Dict containing subscription IDs: {"candle": "sub_1", "userFills": "sub_2"}
         """
@@ -112,12 +114,12 @@ class SubscriptionManager:
 
             # Create both subscriptions for this strategy
             subscription_ids = {}
-            
+
             # Create candle subscription
             candle_sub_id = self._generate_subscription_id()
             candle_params = {**strategy_params, "type": "candle"}
             candle_hyperliquid_id = ctx['info'].subscribe(candle_params, ctx['strategy'].process_message)
-            
+
             candle_subscription = SubscriptionInfo(
                 id=candle_sub_id,
                 type="candle",
@@ -128,12 +130,12 @@ class SubscriptionManager:
             self.subscriptions[candle_sub_id] = candle_subscription
             subscription_ids["candle"] = candle_sub_id
             logger.info(f"Added candle subscription {candle_sub_id} (HL ID: {candle_hyperliquid_id})")
-            
+
             # Create userFills subscription
             userfills_sub_id = self._generate_subscription_id()
             userfills_params = {**strategy_params, "type": "userFills"}
             userfills_hyperliquid_id = ctx['info'].subscribe(userfills_params, ctx['strategy'].process_message)
-            
+
             userfills_subscription = SubscriptionInfo(
                 id=userfills_sub_id,
                 type="userFills",
@@ -144,6 +146,15 @@ class SubscriptionManager:
             self.subscriptions[userfills_sub_id] = userfills_subscription
             subscription_ids["userFills"] = userfills_sub_id
             logger.info(f"Added userFills subscription {userfills_sub_id} (HL ID: {userfills_hyperliquid_id})")
+
+            # Send strategy start notification
+            Notifier().send_strategy_execution_notification(
+                strategy_name=strategy_params.get("strategy_name", "UnknownStrategy"),
+                symbol=strategy_params.get("coin", "UnknownCoin"),
+                action="START",
+                details=f"Strategy started with {strategy_params.get('interval', 'UnknownInterval')} interval",
+                status="started"
+            )
 
             return subscription_ids
 
@@ -179,10 +190,10 @@ class SubscriptionManager:
                 }
 
             ctx = self._contexts[target_user]
-            
+
             # Subscribe to Hyperliquid
             hyperliquid_subscription_id = ctx['info'].subscribe(params, ctx['strategy'].process_message)
-            
+
             subscription_info = SubscriptionInfo(
                 id=sub_id,
                 type=subscription_type,
@@ -193,7 +204,7 @@ class SubscriptionManager:
 
             self.subscriptions[sub_id] = subscription_info
             logger.info(f"Added single subscription {sub_id} (HL ID: {hyperliquid_subscription_id})")
-            
+
             return sub_id
 
         except Exception as e:
@@ -202,10 +213,10 @@ class SubscriptionManager:
 
     def remove_strategy_subscriptions(self, subscription_ids: Dict[str, str]) -> bool:
         """Remove all subscriptions for a strategy
-        
+
         Args:
             subscription_ids: Dict containing subscription IDs: {"candle": "sub_1", "userFills": "sub_2"}
-            
+
         Returns:
             True if all subscriptions were removed successfully, False otherwise
         """
@@ -216,7 +227,7 @@ class SubscriptionManager:
                 success = False
             else:
                 logger.info(f"Removed {sub_type} subscription {sub_id}")
-        
+
         return success
 
     def remove_subscription(self, sub_id: str) -> bool:

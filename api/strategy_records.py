@@ -10,6 +10,7 @@ from api.common import get_subscription_manager
 from core.subscription_manager import SubscriptionManager
 from database.models import StrategyRecord
 from database.session import SessionLocal, APP_ENV
+from utils.notifier import Notifier
 from utils.response import ApiResponse
 
 router = APIRouter(prefix="/strategy-records", tags=["strategy-records"])
@@ -87,10 +88,10 @@ def _sanitize_strategy_record(record: StrategyRecord) -> dict:
 def list_strategy_records(response: Response, db: Session = Depends(get_db)):
     """获取所有策略记录"""
     items = db.query(StrategyRecord).order_by(StrategyRecord.id.desc()).limit(500).all()
-    
+
     # 在响应头中添加环境信息
     response.headers["X-App-Env"] = APP_ENV
-    
+
     return ApiResponse.success([_sanitize_strategy_record(i) for i in items])
 
 
@@ -103,20 +104,20 @@ def create_strategy_record(request: StrategyRecordCreate, db: Session = Depends(
         account = db.query(Account).filter_by(alias=request.account_alias).first()
         if not account:
             raise HTTPException(status_code=400, detail=f"Account alias '{request.account_alias}' not found")
-        
+
         # 检查是否已存在相同的coin+interval+account_alias组合
         existing_strategy = db.query(StrategyRecord).filter_by(
             coin=request.coin,
             interval=request.interval,
             account_alias=request.account_alias
         ).first()
-        
+
         if existing_strategy:
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail=f"Strategy with coin '{request.coin}', interval '{request.interval}' and account '{request.account_alias}' already exists"
             )
-        
+
         # 创建策略记录
         strategy_record = StrategyRecord(
             name=request.name,
@@ -165,12 +166,12 @@ def update_strategy_record(strategy_id: int, request: StrategyRecordUpdate, db: 
 
         # 更新字段
         update_data = request.model_dump(exclude_unset=True)
-        
+
         # 准备新的值（如果没有更新则使用现有值）
         new_coin = update_data.get('coin', strategy.coin)
         new_interval = update_data.get('interval', strategy.interval)
         new_account_alias = update_data.get('account_alias', strategy.account_alias)
-        
+
         # 检查更新后的组合是否与其他策略重复
         if new_coin or new_interval or new_account_alias:
             existing_strategy = db.query(StrategyRecord).filter(
@@ -179,13 +180,13 @@ def update_strategy_record(strategy_id: int, request: StrategyRecordUpdate, db: 
                 StrategyRecord.account_alias == new_account_alias,
                 StrategyRecord.id != strategy_id  # 排除当前策略本身
             ).first()
-            
+
             if existing_strategy:
                 raise HTTPException(
-                    status_code=400, 
+                    status_code=400,
                     detail=f"Strategy with coin '{new_coin}', interval '{new_interval}' and account '{new_account_alias}' already exists"
                 )
-        
+
         # 应用更新
         for field, value in update_data.items():
             if field == "account_alias" and value:
@@ -266,7 +267,7 @@ def start_strategy_record(strategy_id: int,
 
         # 创建策略订阅 - 这会同时创建candle和userFills两个订阅
         subscription_ids = subscription_manager.add_strategy_subscriptions(params)
-        
+
         # 更新策略记录状态
         strategy.is_running = True
         strategy.status = "running"
@@ -321,17 +322,17 @@ def stop_strategy_record(strategy_id: int,
             subscription_ids["candle"] = strategy.candle_subscription_id
         if strategy.userfills_subscription_id:
             subscription_ids["userFills"] = strategy.userfills_subscription_id
-        
+
         # Fallback to old single subscription if new fields are not set
         if not subscription_ids and strategy.subscription_id:
             subscription_ids["legacy"] = strategy.subscription_id
-        
+
         if subscription_ids:
             success = subscription_manager.remove_strategy_subscriptions(subscription_ids)
             if not success:
                 logger.warning(f"Failed to remove some subscriptions for strategy {strategy_id}")
                 # Continue with database update even if some subscriptions failed to remove
-        
+
         # 更新策略记录状态
         strategy.is_running = False
         strategy.status = "stopped"
@@ -346,6 +347,16 @@ def stop_strategy_record(strategy_id: int,
 
         db.commit()
         db.refresh(strategy)
+
+        # Send strategy stop notification
+        notifier = Notifier()
+        notifier.send_strategy_execution_notification(
+            strategy_name=strategy.name,
+            symbol=strategy.coin,
+            action="STOP",
+            details="Strategy stopped by user",
+            status="completed"
+        )
 
         return ApiResponse.success(_sanitize_strategy_record(strategy), "Strategy stopped successfully")
 
