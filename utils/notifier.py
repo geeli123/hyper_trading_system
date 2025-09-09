@@ -69,10 +69,10 @@ class Notifier:
             if percent_change is not None:
                 direction = "surged" if percent_change > 0 else "dropped"
                 title = f"💰 {symbol} Price {direction.upper()} {abs(percent_change):.2f}%"
-                content = f"**{symbol} Price Alert**\n\nCurrent Price: ${price_info.get('price', 0):.8f}\nMarket Cap: ${price_info.get('market_cap', 0):,.2f}\nChange: {direction} {abs(percent_change):.2f}% from last check"
+                content = f"{symbol} Price Alert\n\nCurrent Price: ${price_info.get('price', 0):.8f}\nMarket Cap: ${price_info.get('market_cap', 0):,.2f}\nChange: {direction} {abs(percent_change):.2f}% from last check"
             else:
                 title = f"📊 {symbol} Price Update"
-                content = f"**{symbol} Price Update**\n\nCurrent Price: ${price_info.get('price', 0):.8f}\nMarket Cap: ${price_info.get('market_cap', 0):,.2f}"
+                content = f"{symbol} Price Update\n\nCurrent Price: ${price_info.get('price', 0):.8f}\nMarket Cap: ${price_info.get('market_cap', 0):,.2f}"
 
             return self.send_message(title, content)
         except Exception as e:
@@ -87,12 +87,12 @@ class Notifier:
             action_text = "BUY" if action_type == 'buy' else "SELL"
 
             title = f"{action_emoji} {symbol} {action_text} Order Completed!"
-            content = f"""**{symbol} {action_text} Transaction Completed**
+            content = f"""{symbol} {action_text} Transaction Completed
 
 Amount: {amount:.6f} {token_symbol or 'tokens'}
 Estimated Value: ${estimated_usd_value:.2f} USD
 Transaction Hash: {tx_hash}
-View Transaction: https://solscan.io/tx/{tx_hash}"""
+View Transaction: https://app.hyperliquid.xyz/trade/{symbol}"""
 
             return self.send_message(title, content)
         except Exception as e:
@@ -104,10 +104,10 @@ View Transaction: https://solscan.io/tx/{tx_hash}"""
         try:
             if symbol:
                 title = f"❌ {symbol} System Error"
-                content = f"**{symbol} Trading System Error**\n\nError Details: {error_msg}"
+                content = f"{symbol} Trading System Error\n\nError Details: {error_msg}"
             else:
                 title = "❌ System Error"
-                content = f"**Trading System Error**\n\nError Details: {error_msg}"
+                content = f"Trading System Error\n\nError Details: {error_msg}"
 
             return self.send_message(title, content)
 
@@ -120,10 +120,10 @@ View Transaction: https://solscan.io/tx/{tx_hash}"""
         try:
             if symbol:
                 title = f"🚀 {symbol} Trading System Started"
-                content = f"**{symbol} Trading System Startup**\n\nThe trading system has been successfully started and is now monitoring price changes..."
+                content = f"{symbol} Trading System Startup\n\nThe trading system has been successfully started and is now monitoring price changes..."
             else:
                 title = "🚀 Trading System Started"
-                content = "**Trading System Startup**\n\nThe trading system has been successfully started and is now monitoring market changes..."
+                content = "Trading System Startup\n\nThe trading system has been successfully started and is now monitoring market changes..."
 
             return self.send_message(title, content)
 
@@ -139,7 +139,7 @@ View Transaction: https://solscan.io/tx/{tx_hash}"""
             status_text = status.upper()
 
             title = f"{status_emoji} {symbol} Strategy {status_text}"
-            content = f"**{symbol} Strategy Execution**\n\nStrategy: {strategy_name}\nAction: {action}\nStatus: {status_text}"
+            content = f"{symbol} Strategy Execution\n\nStrategy: {strategy_name}\nAction: {action}\nStatus: {status_text}"
 
             if details:
                 content += f"\nDetails: {details}"
