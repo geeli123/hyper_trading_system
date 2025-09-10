@@ -33,7 +33,20 @@ createApp({
                 name: '',
                 coin: '',
                 interval: '',
-                account_alias: ''
+                account_alias: '',
+                strategy_params: {
+                    trade_size_usd: 12.0,
+                    ma_lookback_periods: 20,
+                    bb_std_dev: 2.5,
+                    stop_loss_multiplier: 0.5,
+                    take_profit_multiplier: 0.5,
+                    input_candle_periods: 1,
+                    input_candle_unit: 'm',
+                    target_candle_periods: 1,
+                    target_candle_unit: 'h',
+                    max_decimals_sz: 4,
+                    max_decimals_px: 1
+                }
             },
             newAccount: {
                 alias: '',
@@ -64,7 +77,11 @@ createApp({
             editStrategyError: '',
 
             // Expandable records state
-            expandedRecords: {}
+            expandedRecords: {},
+            
+            // Advanced parameters UI state
+            showAdvancedParams: false,
+            showEditAdvancedParams: false
         };
     },
 
@@ -197,7 +214,8 @@ createApp({
                     name: this.newStrategy.name,
                     coin: this.newStrategy.coin,
                     interval: this.newStrategy.interval,
-                    account_alias: this.newStrategy.account_alias
+                    account_alias: this.newStrategy.account_alias,
+                    strategy_params: this.newStrategy.strategy_params
                 };
 
                 const response = await ApiClient.post(`${this.apiBaseUrl}/strategy-records/`, payload);
@@ -209,7 +227,20 @@ createApp({
                             name: '',
                             coin: '',
                             interval: '',
-                            account_alias: ''
+                            account_alias: '',
+                            strategy_params: {
+                                trade_size_usd: 12.0,
+                                ma_lookback_periods: 20,
+                                bb_std_dev: 2.5,
+                                stop_loss_multiplier: 0.5,
+                                take_profit_multiplier: 0.5,
+                                input_candle_periods: 1,
+                                input_candle_unit: 'm',
+                                target_candle_periods: 1,
+                                target_candle_unit: 'h',
+                                max_decimals_sz: 4,
+                                max_decimals_px: 1
+                            }
                         };
 
                         // Close modal
@@ -450,7 +481,20 @@ createApp({
                 name: strategy.name,
                 coin: strategy.coin,
                 interval: strategy.interval,
-                account_alias: strategy.account_alias
+                account_alias: strategy.account_alias,
+                strategy_params: strategy.strategy_params || {
+                    trade_size_usd: 12.0,
+                    ma_lookback_periods: 20,
+                    bb_std_dev: 2.5,
+                    stop_loss_multiplier: 0.5,
+                    take_profit_multiplier: 0.5,
+                    input_candle_periods: 1,
+                    input_candle_unit: 'm',
+                    target_candle_periods: 1,
+                    target_candle_unit: 'h',
+                    max_decimals_sz: 4,
+                    max_decimals_px: 1
+                }
             };
             this.editStrategyError = '';
         },
@@ -469,7 +513,8 @@ createApp({
                     name: this.editingStrategy.name,
                     coin: this.editingStrategy.coin,
                     interval: this.editingStrategy.interval,
-                    account_alias: this.editingStrategy.account_alias
+                    account_alias: this.editingStrategy.account_alias,
+                    strategy_params: this.editingStrategy.strategy_params
                 };
 
                 const response = await ApiClient.put(`${this.apiBaseUrl}/strategy-records/${this.editingStrategy.id}`, payload);
@@ -506,6 +551,15 @@ createApp({
         // Toggle expand/collapse for strategy records
         toggleExpand(recordId) {
             this.expandedRecords[recordId] = !this.expandedRecords[recordId];
+        },
+
+        // Toggle advanced parameters sections
+        toggleAdvancedParams() {
+            this.showAdvancedParams = !this.showAdvancedParams;
+        },
+
+        toggleEditAdvancedParams() {
+            this.showEditAdvancedParams = !this.showEditAdvancedParams;
         },
 
         // Utility methods

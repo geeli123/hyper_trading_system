@@ -515,6 +515,99 @@
                                     </option>
                                 </select>
                             </div>
+                            
+                            <!-- Advanced Parameters Section -->
+                            <div class="mb-3">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" @click="toggleAdvancedParams">
+                                    <i class="bi" :class="showAdvancedParams ? 'bi-chevron-down' : 'bi-chevron-right'"></i>
+                                    Advanced Parameters
+                                </button>
+                            </div>
+                            
+                            <div v-show="showAdvancedParams" class="border rounded p-3 mb-3" style="background-color: #f8f9fa;">
+                                <h6 class="mb-3">Strategy Configuration</h6>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="tradeSize" class="form-label">Trade Size (USD)</label>
+                                            <input type="number" class="form-control" id="tradeSize"
+                                                   v-model.number="newStrategy.strategy_params.trade_size_usd" 
+                                                   step="0.1" min="0">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="maLookback" class="form-label">MA Lookback Periods</label>
+                                            <input type="number" class="form-control" id="maLookback"
+                                                   v-model.number="newStrategy.strategy_params.ma_lookback_periods" 
+                                                   min="1">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="bbStdDev" class="form-label">BB Standard Deviation</label>
+                                            <input type="number" class="form-control" id="bbStdDev"
+                                                   v-model.number="newStrategy.strategy_params.bb_std_dev" 
+                                                   step="0.1" min="0">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="stopLoss" class="form-label">Stop Loss Multiplier</label>
+                                            <input type="number" class="form-control" id="stopLoss"
+                                                   v-model.number="newStrategy.strategy_params.stop_loss_multiplier" 
+                                                   step="0.1" min="0">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="takeProfit" class="form-label">Take Profit Multiplier</label>
+                                            <input type="number" class="form-control" id="takeProfit"
+                                                   v-model.number="newStrategy.strategy_params.take_profit_multiplier" 
+                                                   step="0.1" min="0">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="inputCandlePeriods" class="form-label">Input Candle Periods</label>
+                                            <input type="number" class="form-control" id="inputCandlePeriods"
+                                                   v-model.number="newStrategy.strategy_params.input_candle_periods" 
+                                                   min="1">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="inputCandleUnit" class="form-label">Input Candle Unit</label>
+                                            <select class="form-select" id="inputCandleUnit"
+                                                    v-model="newStrategy.strategy_params.input_candle_unit">
+                                                <option value="m">Minutes</option>
+                                                <option value="h">Hours</option>
+                                                <option value="d">Days</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="targetCandlePeriods" class="form-label">Target Candle Periods</label>
+                                            <input type="number" class="form-control" id="targetCandlePeriods"
+                                                   v-model.number="newStrategy.strategy_params.target_candle_periods" 
+                                                   min="1">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="targetCandleUnit" class="form-label">Target Candle Unit</label>
+                                            <select class="form-select" id="targetCandleUnit"
+                                                    v-model="newStrategy.strategy_params.target_candle_unit">
+                                                <option value="m">Minutes</option>
+                                                <option value="h">Hours</option>
+                                                <option value="d">Days</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="maxDecimalsSz" class="form-label">Max Decimals Size</label>
+                                            <input type="number" class="form-control" id="maxDecimalsSz"
+                                                   v-model.number="newStrategy.strategy_params.max_decimals_sz" 
+                                                   min="0" max="10">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="maxDecimalsPx" class="form-label">Max Decimals Price</label>
+                                            <input type="number" class="form-control" id="maxDecimalsPx"
+                                                   v-model.number="newStrategy.strategy_params.max_decimals_px" 
+                                                   min="0" max="10">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
                             <div v-if="createStrategyError" class="error-message">
                                 {{ createStrategyError }}
                             </div>
@@ -576,6 +669,99 @@
                                     </option>
                                 </select>
                             </div>
+                            
+                            <!-- Advanced Parameters Section for Edit -->
+                            <div class="mb-3">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" @click="toggleEditAdvancedParams">
+                                    <i class="bi" :class="showEditAdvancedParams ? 'bi-chevron-down' : 'bi-chevron-right'"></i>
+                                    Advanced Parameters
+                                </button>
+                            </div>
+                            
+                            <div v-show="showEditAdvancedParams" class="border rounded p-3 mb-3" style="background-color: #f8f9fa;">
+                                <h6 class="mb-3">Strategy Configuration</h6>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="editTradeSize" class="form-label">Trade Size (USD)</label>
+                                            <input type="number" class="form-control" id="editTradeSize"
+                                                   v-model.number="editingStrategy.strategy_params.trade_size_usd" 
+                                                   step="0.1" min="0">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="editMaLookback" class="form-label">MA Lookback Periods</label>
+                                            <input type="number" class="form-control" id="editMaLookback"
+                                                   v-model.number="editingStrategy.strategy_params.ma_lookback_periods" 
+                                                   min="1">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="editBbStdDev" class="form-label">BB Standard Deviation</label>
+                                            <input type="number" class="form-control" id="editBbStdDev"
+                                                   v-model.number="editingStrategy.strategy_params.bb_std_dev" 
+                                                   step="0.1" min="0">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="editStopLoss" class="form-label">Stop Loss Multiplier</label>
+                                            <input type="number" class="form-control" id="editStopLoss"
+                                                   v-model.number="editingStrategy.strategy_params.stop_loss_multiplier" 
+                                                   step="0.1" min="0">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="editTakeProfit" class="form-label">Take Profit Multiplier</label>
+                                            <input type="number" class="form-control" id="editTakeProfit"
+                                                   v-model.number="editingStrategy.strategy_params.take_profit_multiplier" 
+                                                   step="0.1" min="0">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="editInputCandlePeriods" class="form-label">Input Candle Periods</label>
+                                            <input type="number" class="form-control" id="editInputCandlePeriods"
+                                                   v-model.number="editingStrategy.strategy_params.input_candle_periods" 
+                                                   min="1">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="editInputCandleUnit" class="form-label">Input Candle Unit</label>
+                                            <select class="form-select" id="editInputCandleUnit"
+                                                    v-model="editingStrategy.strategy_params.input_candle_unit">
+                                                <option value="m">Minutes</option>
+                                                <option value="h">Hours</option>
+                                                <option value="d">Days</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="editTargetCandlePeriods" class="form-label">Target Candle Periods</label>
+                                            <input type="number" class="form-control" id="editTargetCandlePeriods"
+                                                   v-model.number="editingStrategy.strategy_params.target_candle_periods" 
+                                                   min="1">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="editTargetCandleUnit" class="form-label">Target Candle Unit</label>
+                                            <select class="form-select" id="editTargetCandleUnit"
+                                                    v-model="editingStrategy.strategy_params.target_candle_unit">
+                                                <option value="m">Minutes</option>
+                                                <option value="h">Hours</option>
+                                                <option value="d">Days</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="editMaxDecimalsSz" class="form-label">Max Decimals Size</label>
+                                            <input type="number" class="form-control" id="editMaxDecimalsSz"
+                                                   v-model.number="editingStrategy.strategy_params.max_decimals_sz" 
+                                                   min="0" max="10">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="editMaxDecimalsPx" class="form-label">Max Decimals Price</label>
+                                            <input type="number" class="form-control" id="editMaxDecimalsPx"
+                                                   v-model.number="editingStrategy.strategy_params.max_decimals_px" 
+                                                   min="0" max="10">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
                             <div v-if="editStrategyError" class="error-message">
                                 {{ editStrategyError }}
                             </div>

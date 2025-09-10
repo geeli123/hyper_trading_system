@@ -81,6 +81,59 @@ class MeanReversionBB:
 
         self._start_up()
 
+    @classmethod
+    def from_params(
+            cls,
+            exchange: Exchange,
+            info: Info,
+            address: str,
+            symbol: str,
+            strategy_name: str = "MeanReversionBB",
+            account_alias: str = None,
+            strategy_params: dict = None
+    ):
+        """从参数字典创建策略实例"""
+        if strategy_params is None:
+            strategy_params = {}
+        
+        # 默认参数
+        defaults = {
+            'trade_size_usd': 12.0,
+            'ma_lookback_periods': 20,
+            'bb_std_dev': 2.5,
+            'stop_loss_multiplier': 0.5,
+            'take_profit_multiplier': 0.5,
+            'input_candle_periods': 1,
+            'input_candle_unit': 'm',
+            'target_candle_periods': 1,
+            'target_candle_unit': 'h',
+            'max_decimals_sz': 4,
+            'max_decimals_px': 1
+        }
+        
+        # 合并用户参数和默认参数
+        params = {**defaults, **strategy_params}
+        
+        return cls(
+            exchange=exchange,
+            info=info,
+            address=address,
+            symbol=symbol,
+            strategy_name=strategy_name,
+            account_alias=account_alias,
+            trade_size_usd=params['trade_size_usd'],
+            ma_lookback_periods=params['ma_lookback_periods'],
+            bb_std_dev=params['bb_std_dev'],
+            stop_loss_multiplier=params['stop_loss_multiplier'],
+            take_profit_multiplier=params['take_profit_multiplier'],
+            input_candle_periods=params['input_candle_periods'],
+            input_candle_unit=params['input_candle_unit'],
+            target_candle_periods=params['target_candle_periods'],
+            target_candle_unit=params['target_candle_unit'],
+            max_decimals_sz=params['max_decimals_sz'],
+            max_decimals_px=params['max_decimals_px']
+        )
+
     def _get_state(self, timestamp):
         return {
             "timestamp": timestamp,

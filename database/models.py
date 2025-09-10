@@ -32,6 +32,7 @@ class StrategyRecord(Base):
     subscription_id = Column(String, index=True, nullable=True)  # 运行时的订阅ID (deprecated)
     subscription_type = Column(String, index=True, nullable=True)  # 订阅类型 (deprecated)
     params = Column(JSON, nullable=True)  # 参数
+    strategy_params = Column(JSON, nullable=True)  # 策略参数
     status = Column(String, index=True, default="created")  # 状态: created, running, stopped, error
     error_message = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

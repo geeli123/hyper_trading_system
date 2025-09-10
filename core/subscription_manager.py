@@ -103,7 +103,17 @@ class SubscriptionManager:
                     secret_key=strategy_params.get("user_secret_key"),
                     account_address=target_user
                 )
-                strategy = self.strategy_factory(exchange, info, address, strategy_params.get("coin"), strategy_params.get("strategy_name", "MeanReversionBB"), strategy_params.get("account_alias"))
+                # 使用策略参数创建策略实例
+                from core.mv_bb import MeanReversionBB
+                strategy = MeanReversionBB.from_params(
+                    exchange=exchange,
+                    info=info,
+                    address=address,
+                    symbol=strategy_params.get("coin"),
+                    strategy_name=strategy_params.get("strategy_name", "MeanReversionBB"),
+                    account_alias=strategy_params.get("account_alias"),
+                    strategy_params=strategy_params.get("strategy_params", {})
+                )
                 self._contexts[target_user] = {
                     'info': info,
                     'exchange': exchange,

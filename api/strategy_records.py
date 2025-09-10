@@ -22,6 +22,7 @@ class StrategyRecordCreate(BaseModel):
     coin: str
     interval: str
     account_alias: str
+    strategy_params: Optional[dict] = None
 
 
 class StrategyRecordUpdate(BaseModel):
@@ -29,6 +30,7 @@ class StrategyRecordUpdate(BaseModel):
     coin: Optional[str] = None
     interval: Optional[str] = None
     account_alias: Optional[str] = None
+    strategy_params: Optional[dict] = None
 
 
 class StrategyRecordOut(BaseModel):
@@ -44,6 +46,7 @@ class StrategyRecordOut(BaseModel):
     subscription_id: Optional[str] = None
     subscription_type: Optional[str] = None
     params: Optional[dict] = None
+    strategy_params: Optional[dict] = None
     status: str
     error_message: Optional[str] = None
     created_at: datetime
@@ -124,6 +127,7 @@ def create_strategy_record(request: StrategyRecordCreate, db: Session = Depends(
             coin=request.coin,
             interval=request.interval,
             account_alias=request.account_alias,
+            strategy_params=request.strategy_params,
             is_running=False,
             status="created"
         )
@@ -262,7 +266,8 @@ def start_strategy_record(strategy_id: int,
             "account_alias": strategy.account_alias,
             "strategy_name": strategy.name,
             "user": account.account_address,  # 添加用户地址
-            "user_secret_key": account.secret_key  # 添加用户私钥
+            "user_secret_key": account.secret_key,  # 添加用户私钥
+            "strategy_params": strategy.strategy_params  # 添加策略参数
         }
 
         # 创建策略订阅 - 这会同时创建candle和userFills两个订阅
