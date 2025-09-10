@@ -119,6 +119,21 @@
         .expand-icon.expanded {
             transform: rotate(90deg);
         }
+        .strategy-params-summary {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 0.375rem;
+            padding: 0.75rem;
+        }
+        .strategy-params-details {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 0.375rem;
+            padding: 1rem;
+        }
+        .strategy-params-summary small {
+            line-height: 1.6;
+        }
     </style>
 </head>
 <body>
@@ -340,6 +355,95 @@
                                                                         <span class="detail-value text-danger">{{ record.error_message }}</span>
                                                                     </div>
                                                                 </div>
+                                                            </div>
+                                                            
+                                                            <!-- Strategy Parameters Section -->
+                                                            <div class="row mt-3" v-if="record.strategy_params">
+                                                                <div class="col-12">
+                                                                    <h6 class="card-title">
+                                                                        <i class="bi bi-gear text-info me-2"></i>
+                                                                        Strategy Parameters
+                                                                        <button class="btn btn-sm btn-outline-secondary ms-2" 
+                                                                                @click="toggleStrategyParams(record.id)"
+                                                                                :title="(expandedStrategyParams && expandedStrategyParams[record.id] ? 'Hide details' : 'Show details')">
+                                                                            <i class="bi" :class="(expandedStrategyParams && expandedStrategyParams[record.id] ? 'bi-chevron-up' : 'bi-chevron-down')"></i>
+                                                                        </button>
+                                                                    </h6>
+                                                                    
+                                                                    <!-- Collapsed View -->
+                                                                    <div v-if="!expandedStrategyParams || !expandedStrategyParams[record.id]" class="strategy-params-summary">
+                                                                        <div class="row">
+                                                                            <div class="col-md-6">
+                                                                                <small class="text-muted">
+                                                                                    <strong>Trade Size:</strong> ${{ (record.strategy_params && record.strategy_params.trade_size_usd) || 'N/A' }} | 
+                                                                                    <strong>MA Periods:</strong> {{ (record.strategy_params && record.strategy_params.ma_lookback_periods) || 'N/A' }} | 
+                                                                                    <strong>BB StdDev:</strong> {{ (record.strategy_params && record.strategy_params.bb_std_dev) || 'N/A' }}
+                                                                                </small>
+                                                                            </div>
+                                                                            <div class="col-md-6">
+                                                                                <small class="text-muted">
+                                                                                    <strong>Stop Loss:</strong> {{ (record.strategy_params && record.strategy_params.stop_loss_multiplier) || 'N/A' }} | 
+                                                                                    <strong>Take Profit:</strong> {{ (record.strategy_params && record.strategy_params.take_profit_multiplier) || 'N/A' }}
+                                                                                </small>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    
+                                                                    <!-- Expanded View -->
+                                                                    <div v-if="expandedStrategyParams && expandedStrategyParams[record.id]" class="strategy-params-details">
+                                                                        <div class="row">
+                                                                            <div class="col-md-6">
+                                                                                <div class="detail-item">
+                                                                                    <span class="detail-label">Trade Size (USD):</span>
+                                                                                    <span class="detail-value">{{ (record.strategy_params && record.strategy_params.trade_size_usd) || 'N/A' }}</span>
+                                                                                </div>
+                                                                                <div class="detail-item">
+                                                                                    <span class="detail-label">MA Lookback Periods:</span>
+                                                                                    <span class="detail-value">{{ (record.strategy_params && record.strategy_params.ma_lookback_periods) || 'N/A' }}</span>
+                                                                                </div>
+                                                                                <div class="detail-item">
+                                                                                    <span class="detail-label">BB Standard Deviation:</span>
+                                                                                    <span class="detail-value">{{ (record.strategy_params && record.strategy_params.bb_std_dev) || 'N/A' }}</span>
+                                                                                </div>
+                                                                                <div class="detail-item">
+                                                                                    <span class="detail-label">Stop Loss Multiplier:</span>
+                                                                                    <span class="detail-value">{{ (record.strategy_params && record.strategy_params.stop_loss_multiplier) || 'N/A' }}</span>
+                                                                                </div>
+                                                                                <div class="detail-item">
+                                                                                    <span class="detail-label">Take Profit Multiplier:</span>
+                                                                                    <span class="detail-value">{{ (record.strategy_params && record.strategy_params.take_profit_multiplier) || 'N/A' }}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div class="col-md-6">
+                                                                                <div class="detail-item">
+                                                                                    <span class="detail-label">Input Candle Periods:</span>
+                                                                                    <span class="detail-value">{{ (record.strategy_params && record.strategy_params.input_candle_periods) || 'N/A' }}</span>
+                                                                                </div>
+                                                                                <div class="detail-item">
+                                                                                    <span class="detail-label">Input Candle Unit:</span>
+                                                                                    <span class="detail-value">{{ (record.strategy_params && record.strategy_params.input_candle_unit) || 'N/A' }}</span>
+                                                                                </div>
+                                                                                <div class="detail-item">
+                                                                                    <span class="detail-label">Target Candle Periods:</span>
+                                                                                    <span class="detail-value">{{ (record.strategy_params && record.strategy_params.target_candle_periods) || 'N/A' }}</span>
+                                                                                </div>
+                                                                                <div class="detail-item">
+                                                                                    <span class="detail-label">Target Candle Unit:</span>
+                                                                                    <span class="detail-value">{{ (record.strategy_params && record.strategy_params.target_candle_unit) || 'N/A' }}</span>
+                                                                                </div>
+                                                                                <div class="detail-item">
+                                                                                    <span class="detail-label">Max Decimals Size:</span>
+                                                                                    <span class="detail-value">{{ (record.strategy_params && record.strategy_params.max_decimals_sz) || 'N/A' }}</span>
+                                                                                </div>
+                                                                                <div class="detail-item">
+                                                                                    <span class="detail-label">Max Decimals Price:</span>
+                                                                                    <span class="detail-value">{{ (record.strategy_params && record.strategy_params.max_decimals_px) || 'N/A' }}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
                                                             </div>
                                                         </div>
                                                     </div>

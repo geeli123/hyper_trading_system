@@ -78,6 +78,7 @@ createApp({
 
             // Expandable records state
             expandedRecords: {},
+            expandedStrategyParams: {},
             
             // Advanced parameters UI state
             showAdvancedParams: false,
@@ -560,6 +561,17 @@ createApp({
 
         toggleEditAdvancedParams() {
             this.showEditAdvancedParams = !this.showEditAdvancedParams;
+        },
+
+        // Toggle strategy parameters expansion
+        toggleStrategyParams(recordId) {
+            if (recordId !== undefined && recordId !== null) {
+                // 确保 expandedStrategyParams 对象存在
+                if (!this.expandedStrategyParams) {
+                    this.expandedStrategyParams = {};
+                }
+                this.expandedStrategyParams[recordId] = !this.expandedStrategyParams[recordId];
+            }
         },
 
         // Utility methods
