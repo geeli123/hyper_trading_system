@@ -93,7 +93,12 @@ class SubscriptionManager:
             if not target_user:
                 raise ValueError("Missing 'user' in params; provide account_alias or account_address to resolve")
 
-            if target_user not in self._contexts:
+            # Create unique context key for each strategy (user + coin + strategy_name)
+            coin = strategy_params.get("coin", "unknown")
+            strategy_name = strategy_params.get("strategy_name", "MeanReversionBB")
+            context_key = f"{target_user}_{coin}_{strategy_name}"
+
+            if context_key not in self._contexts:
                 # Build context for this user
                 from utils import exchange_utils  # local import
                 # pull secret_key/api wallet from Account/Config inside setup
@@ -114,13 +119,13 @@ class SubscriptionManager:
                     account_alias=strategy_params.get("account_alias"),
                     strategy_params=strategy_params.get("strategy_params", {})
                 )
-                self._contexts[target_user] = {
+                self._contexts[context_key] = {
                     'info': info,
                     'exchange': exchange,
                     'strategy': strategy,
                 }
 
-            ctx = self._contexts[target_user]
+            ctx = self._contexts[context_key]
 
             # Create both subscriptions for this strategy
             subscription_ids = {}
@@ -173,55 +178,6 @@ class SubscriptionManager:
             logger.error(f"Failed to add strategy subscriptions: {e}")
             raise RuntimeError(e.args[0])
 
-    def add_subscription(self, subscription_type: str, params: Dict[str, Any]) -> str:
-        """Add a single subscription (legacy method for compatibility)"""
-        # This method is kept for backward compatibility but should be deprecated
-        # in favor of add_strategy_subscriptions for strategy-related subscriptions
-        sub_id = self._generate_subscription_id()
-
-        try:
-            # Resolve user information
-            target_user = params.get("user")
-            if not target_user:
-                raise ValueError("Missing 'user' in params; provide account_alias or account_address to resolve")
-
-            if target_user not in self._contexts:
-                from utils import exchange_utils
-                address, info, exchange = exchange_utils.setup(
-                    skip_ws=False,
-                    environment=self.environment,
-                    secret_key=params.get("user_secret_key"),
-                    account_address=target_user
-                )
-                strategy = self.strategy_factory(exchange, info, address, params.get("coin"))
-                self._contexts[target_user] = {
-                    'info': info,
-                    'exchange': exchange,
-                    'strategy': strategy,
-                }
-
-            ctx = self._contexts[target_user]
-
-            # Subscribe to Hyperliquid
-            hyperliquid_subscription_id = ctx['info'].subscribe(params, ctx['strategy'].process_message)
-
-            subscription_info = SubscriptionInfo(
-                id=sub_id,
-                type=subscription_type,
-                params=params,
-                status=SubscriptionStatus.ACTIVE,
-                subscription_id=hyperliquid_subscription_id
-            )
-
-            self.subscriptions[sub_id] = subscription_info
-            logger.info(f"Added single subscription {sub_id} (HL ID: {hyperliquid_subscription_id})")
-
-            return sub_id
-
-        except Exception as e:
-            logger.error(f"Failed to add subscription {sub_id}: {e}")
-            raise RuntimeError(e.args[0])
-
     def remove_strategy_subscriptions(self, subscription_ids: Dict[str, str]) -> bool:
         """Remove all subscriptions for a strategy
 
@@ -253,7 +209,10 @@ class SubscriptionManager:
             if subscription.subscription_id is not None:
                 # Unsubscribe from the right context
                 target_user = subscription.params.get("user")
-                ctx = self._contexts.get(target_user) if target_user else None
+                coin = subscription.params.get("coin", "unknown")
+                strategy_name = subscription.params.get("strategy_name", "MeanReversionBB")
+                context_key = f"{target_user}_{coin}_{strategy_name}"
+                ctx = self._contexts.get(context_key) if target_user else None
                 if ctx is not None:
                     ctx['info'].unsubscribe(subscription.params, subscription.subscription_id)
 
