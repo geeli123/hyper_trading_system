@@ -95,7 +95,7 @@ class MeanReversionBB:
         """从参数字典创建策略实例"""
         if strategy_params is None:
             strategy_params = {}
-        
+
         # 默认参数
         defaults = {
             'trade_size_usd': 12.0,
@@ -110,10 +110,10 @@ class MeanReversionBB:
             'max_decimals_sz': 4,
             'max_decimals_px': 1
         }
-        
+
         # 合并用户参数和默认参数
         params = {**defaults, **strategy_params}
-        
+
         return cls(
             exchange=exchange,
             info=info,
@@ -299,8 +299,8 @@ class MeanReversionBB:
         """
         Processes a new market event.
         """
-        print("get_open_orders: ", self.order_system.get_open_orders(self.symbol))
-
+        logging.info('%s-receive: %s', self.symbol, message)
+        logging.info("%s-get existing open orders: %s", self.symbol, self.order_system.get_open_orders(self.symbol))
         if message['channel'] == 'candle':
             self._process_candle_message(message)
         elif message['channel'] == 'userFills':
@@ -324,7 +324,7 @@ class MeanReversionBB:
 
         if is_complete:
             print(self.strategy_state)
-            
+
             # Check for significant price changes before updating bollinger bands
             if hasattr(self, 'last_price') and self.last_price is not None:
                 price_change = ((self.current_candle.close - self.last_price) / self.last_price) * 100
@@ -340,7 +340,7 @@ class MeanReversionBB:
                         account_alias=self.account_alias,
                         strategy_name=self.strategy_name
                     )
-            
+
             self.last_price = self.current_candle.close
             self.bollinger_bands.update(self.current_candle.close)
 
@@ -361,10 +361,10 @@ class MeanReversionBB:
     def _validate_candle_event(self, event: OHLCVEvent) -> bool:
         """Verify the validity of the K-line event"""
         if event.start_time <= self.latest_candle_watermark:
-            print("Skipping candle with start time before latest watermark.")
+            logging.info(event.symbol + "-Skipping candle with start time before latest watermark.")
             return False
         if event.end_time >= dt.datetime.now():
-            print("Skipping incomplete candle.")
+            logging.info(event.symbol + "-Skipping incomplete candle.")
             return False
         return True
 
