@@ -44,12 +44,14 @@ class MeanReversionBB:
             target_candle_unit: str = "h",
             max_decimals_sz: int = 4,
             max_decimals_px: int = 1,
+            min_trade_size_usd: float = 5.0,
     ):
         self.hl_info = info
         self.hl_exchange = exchange
         self.address = address
         self.max_decimals_sz = max_decimals_sz
         self.max_decimals_px = max_decimals_px
+        self.min_trade_size_usd = min_trade_size_usd
         self.order_system = BasicOrderSystem(self.hl_info, self.hl_exchange, self.address)
 
         self.symbol = symbol
@@ -144,7 +146,16 @@ class MeanReversionBB:
         }
 
     def _get_current_asset_quantity(self):
-        return self.order_system.get_position(self.symbol)['size']
+        position = self.order_system.get_position(self.symbol)
+        if position is None:
+            return 0
+        return position['size']
+
+    def _get_entry_asset_value(self):
+        position = self.order_system.get_position(self.symbol)
+        if position is None:
+            return 0.0
+        return position['entry_value']
 
     def _start_up(self):
         startup_candles = self.hl_info.candles_snapshot(
@@ -153,11 +164,10 @@ class MeanReversionBB:
             int((dt.datetime.now() - dt.timedelta(hours=24)).timestamp() * 1000),
             int(dt.datetime.now().timestamp() * 1000)
         )
-        print(len(startup_candles))
         for candle in startup_candles[:-1]:  # Skip the last candle as it is incomplete
             event = OHLCVEvent.from_hyperliquid_message(candle)
             if event.start_time <= self.latest_candle_watermark:
-                print("Skipping candle with start time before latest watermark.")
+                logging.info("Skipping candle with start time before latest watermark.")
                 continue
             self.latest_candle_watermark = event.start_time
             is_complete, self.current_candle = aggregate_ohlcv(event, self.current_candle, self.target_candle_periods,
@@ -167,42 +177,25 @@ class MeanReversionBB:
                 self.bollinger_bands.update(self.current_candle.close)
                 self.last_full_candle = copy(self.current_candle)
         self.startup_complete = True
-        print("Startup complete. Bollinger Bands initialized.")
-        print(f"Current Bollinger Bands: {self.bollinger_bands.bands}")
-        print(f"Latest message: {self.latest_candle_watermark}")
+        logging.info("Startup complete. Bollinger Bands initialized.")
+        logging.info(f"Current Bollinger Bands: {self.bollinger_bands.bands}")
+        logging.info(f"Latest message: {self.latest_candle_watermark}")
         self.order_system.cancel_all_orders(self.symbol)
 
         positions = self.order_system.get_position(self.symbol)
-        print("show positions", positions)
-        if positions is None or positions['size'] == 0:
-            self.strategy_state = MVBBState.NEUTRAL
-        elif positions['side'] == 'long':
-            self.strategy_state = MVBBState.LONG
-        elif positions['side'] == 'short':
-            self.strategy_state = MVBBState.SHORT
+        logging.info(f"show positions: {positions}")
+        self._determine_strategy_state()
 
         self.order_system.cancel_all_orders(self.symbol)
 
         if self.strategy_state == MVBBState.NEUTRAL:
             logging.info("Strategy state is NEUTRAL. Placing initial limit orders at Bollinger Bands.")
-            result = self.hl_exchange.order(
-                name=self.symbol,
-                is_buy=True,
-                sz=round_values(self.trade_size_usd / self.bollinger_bands.lower_band, self.max_decimals_sz),
-                limit_px=round_values(self.bollinger_bands.lower_band, self.max_decimals_px),
-                order_type={"limit": {"tif": "Gtc"}},
-            )
-            logging.info(f"Initial long order result: {result}")
-            result = self.hl_exchange.order(
-                name=self.symbol,
-                is_buy=False,
-                sz=round_values(self.trade_size_usd / self.bollinger_bands.upper_band, self.max_decimals_sz),
-                limit_px=round_values(self.bollinger_bands.upper_band, self.max_decimals_px),
-                order_type={"limit": {"tif": "Gtc"}},
-            )
+            self._set_resting_open_orders(self.trade_size_usd - positions["entry_value"])
         elif self.strategy_state == MVBBState.LONG:
             bb_range_half = (-self.bollinger_bands.lower_band + self.bollinger_bands.middle_band)
             self.order_system.cancel_all_orders(self.symbol)
+
+            self._set_resting_open_orders()
 
             # Place a stop order
             stop_order_type = {
@@ -253,6 +246,8 @@ class MeanReversionBB:
             bb_range_half = (self.bollinger_bands.upper_band - self.bollinger_bands.middle_band)
 
             self.order_system.cancel_all_orders(self.symbol)
+
+            self._set_resting_open_orders()
 
             # Place a stop order
             stop_order_type = {
@@ -379,25 +374,23 @@ class MeanReversionBB:
         else:
             raise ValueError(f"Unknown strategy state: {self.strategy_state}")
 
-    def _handle_neutral_state(self):
-        """处理中性状态 - 在布林带上下轨放置限价单"""
-        self.order_system.cancel_all_orders(self.symbol)
+    def _set_resting_open_orders(self, trade_size_usd: float | None = None):
+        """Set place limit orders to open positions"""
+        if trade_size_usd is None:
+            existing_position_value = self._get_entry_asset_value()
+            useable_trade_size_usd = self.trade_size_usd - existing_position_value
+        else:
+            useable_trade_size_usd = trade_size_usd
 
-        # Send strategy execution notification and log
-        self.notification_logger.notify_and_log_strategy_execution(
-            strategy_name=self.strategy_name,
-            symbol=self.symbol,
-            action="PLACE_NEUTRAL_ORDERS",
-            account_alias=self.account_alias,
-            details=f"Placing buy order at {self.bollinger_bands.lower_band:.4f} and sell order at {self.bollinger_bands.upper_band:.4f}",
-            status="started"
-        )
+        if useable_trade_size_usd < self.min_trade_size_usd:
+            logging.info(f"Trade size USD {useable_trade_size_usd} is below minimum threshold {self.min_trade_size_usd}. No orders placed.")
+            return
 
         # 在布林带下轨放置买入限价单
         buy_result = self.hl_exchange.order(
             name=self.symbol,
             is_buy=True,
-            sz=round_values(self.trade_size_usd / self.bollinger_bands.lower_band, self.max_decimals_sz),
+            sz=round_values(useable_trade_size_usd / self.bollinger_bands.lower_band, self.max_decimals_sz),
             limit_px=round_values(self.bollinger_bands.lower_band, self.max_decimals_px),
             order_type={"limit": {"tif": "Gtc"}},
         )
@@ -407,7 +400,7 @@ class MeanReversionBB:
         sell_result = self.hl_exchange.order(
             name=self.symbol,
             is_buy=False,
-            sz=round_values(self.trade_size_usd / self.bollinger_bands.upper_band, self.max_decimals_sz),
+            sz=round_values(useable_trade_size_usd / self.bollinger_bands.upper_band, self.max_decimals_sz),
             limit_px=round_values(self.bollinger_bands.upper_band, self.max_decimals_px),
             order_type={"limit": {"tif": "Gtc"}},
         )
@@ -424,10 +417,29 @@ class MeanReversionBB:
                 status="completed"
             )
 
+
+    def _handle_neutral_state(self):
+        """处理中性状态 - 在布林带上下轨放置限价单"""
+        self.order_system.cancel_all_orders(self.symbol)
+
+        # Send strategy execution notification and log
+        self.notification_logger.notify_and_log_strategy_execution(
+            strategy_name=self.strategy_name,
+            symbol=self.symbol,
+            action="PLACE_NEUTRAL_ORDERS",
+            account_alias=self.account_alias,
+            details=f"Placing buy order at {self.bollinger_bands.lower_band:.4f} and sell order at {self.bollinger_bands.upper_band:.4f}",
+            status="started"
+        )
+
+        self._set_resting_open_orders()
+
     def _handle_long_state(self):
         """处理多头状态 - 设置止损止盈订单"""
         bb_range_half = (-self.bollinger_bands.lower_band + self.bollinger_bands.middle_band)
         self.order_system.cancel_all_orders(self.symbol)
+
+        self._set_resting_open_orders()
 
         # Setting Stop Loss Orders
         self._place_stop_loss_order(bb_range_half, is_long=True)
@@ -439,6 +451,8 @@ class MeanReversionBB:
         """处理空头状态 - 设置止损止盈订单"""
         bb_range_half = (self.bollinger_bands.upper_band - self.bollinger_bands.middle_band)
         self.order_system.cancel_all_orders(self.symbol)
+
+        self._set_resting_open_orders()
 
         # Setting Stop Loss Orders
         self._place_stop_loss_order(bb_range_half, is_long=False)
@@ -498,90 +512,26 @@ class MeanReversionBB:
 
     def _handle_fill_event(self, event: FillEvent):
         """Handling of closing events"""
-        if self.strategy_state == MVBBState.NEUTRAL:
-            self._handle_neutral_fill(event)
-        elif self.strategy_state == MVBBState.LONG:
-            self._handle_long_fill(event)
-        elif self.strategy_state == MVBBState.SHORT:
-            self._handle_short_fill(event)
-        else:
-            raise ValueError(f"Unknown strategy state: {self.strategy_state}")
+        self.notification_logger.notify_and_log_trade(
+            tx_hash=str(event.order.transaction_id) if hasattr(event.order, 'transaction_id') else "N/A",
+            amount=abs(event.order.quantity),
+            estimated_usd_value=abs(event.order.quantity * event.order.price),
+            symbol=self.symbol,
+            token_symbol=self.symbol,
+            action_type=event.side,
+            account_alias=self.account_alias,
+            strategy_name=self.strategy_name
+        )
 
-    def _handle_neutral_fill(self, event: FillEvent):
-        """Handling of neutral state transactions"""
-        if event.order.quantity > 0:
-            # Long position opened
+        self._determine_strategy_state()
+        self._execute_strategy_logic()
+
+    def _determine_strategy_state(self):
+        """Determine the current strategy state based on existing positions"""
+        positions = self.order_system.get_position(self.symbol)
+        if positions is None or positions['size'] == 0:
+            self.strategy_state = MVBBState.NEUTRAL
+        elif positions['side'] == 'long':
             self.strategy_state = MVBBState.LONG
-            self.notification_logger.notify_and_log_trade(
-                tx_hash=str(event.order.transaction_id) if hasattr(event.order, 'transaction_id') else "N/A",
-                amount=abs(event.order.quantity),
-                estimated_usd_value=abs(event.order.quantity * event.order.price),
-                symbol=self.symbol,
-                token_symbol=self.symbol,
-                action_type='buy',
-                account_alias=self.account_alias,
-                strategy_name=self.strategy_name
-            )
-            self._setup_long_position()
-        elif event.order.quantity < 0:
-            # Short position opened
+        elif positions['side'] == 'short':
             self.strategy_state = MVBBState.SHORT
-            self.notification_logger.notify_and_log_trade(
-                tx_hash=str(event.order.transaction_id) if hasattr(event.order, 'transaction_id') else "N/A",
-                amount=abs(event.order.quantity),
-                estimated_usd_value=abs(event.order.quantity * event.order.price),
-                symbol=self.symbol,
-                token_symbol=self.symbol,
-                action_type='sell',
-                account_alias=self.account_alias,
-                strategy_name=self.strategy_name
-            )
-            self._setup_short_position()
-        else:
-            raise ValueError(f"Fill event with zero quantity: {event}")
-
-    def _handle_long_fill(self, event: FillEvent):
-        """Handling transactions in a long position"""
-        # Position closed
-        self.notification_logger.notify_and_log_trade(
-            tx_hash=str(event.order.transaction_id) if hasattr(event.order, 'transaction_id') else "N/A",
-            amount=abs(event.order.quantity),
-            estimated_usd_value=abs(event.order.quantity * event.order.price),
-            symbol=self.symbol,
-            token_symbol=self.symbol,
-            action_type='sell',
-            account_alias=self.account_alias,
-            strategy_name=self.strategy_name
-        )
-        self.strategy_state = MVBBState.NEUTRAL
-        self.order_system.cancel_all_orders(self.symbol)
-
-    def _handle_short_fill(self, event: FillEvent):
-        """Handling of transactions in a short position"""
-        # Position closed
-        self.notification_logger.notify_and_log_trade(
-            tx_hash=str(event.order.transaction_id) if hasattr(event.order, 'transaction_id') else "N/A",
-            amount=abs(event.order.quantity),
-            estimated_usd_value=abs(event.order.quantity * event.order.price),
-            symbol=self.symbol,
-            token_symbol=self.symbol,
-            action_type='buy',
-            account_alias=self.account_alias,
-            strategy_name=self.strategy_name
-        )
-        self.strategy_state = MVBBState.NEUTRAL
-        self.order_system.cancel_all_orders(self.symbol)
-
-    def _setup_long_position(self):
-        """Setting up a long position"""
-        bb_range_half = (-self.bollinger_bands.lower_band + self.bollinger_bands.middle_band)
-        self.order_system.cancel_all_orders(self.symbol)
-        self._place_stop_loss_order(bb_range_half, is_long=True)
-        self._place_take_profit_order(bb_range_half, is_long=True)
-
-    def _setup_short_position(self):
-        """Setting up a short position"""
-        bb_range_half = (self.bollinger_bands.upper_band - self.bollinger_bands.middle_band)
-        self.order_system.cancel_all_orders(self.symbol)
-        self._place_stop_loss_order(bb_range_half, is_long=False)
-        self._place_take_profit_order(bb_range_half, is_long=False)

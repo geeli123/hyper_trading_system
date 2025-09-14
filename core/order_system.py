@@ -120,6 +120,10 @@ class BasicOrderSystem:
             return {}
 
     def get_position(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """
+        Retuns dict of 'symbol', 'size', 'entry_price', 'unrealized_pnl', 'side'
+        or None if no position
+        """
         try:
             us = self.get_user_state()
             for ap in us.get("assetPositions", []):
@@ -133,6 +137,7 @@ class BasicOrderSystem:
                         "entry_price": float(ap["position"].get("entryPx") or 0),
                         "unrealized_pnl": float(ap.get("unrealizedPnl") or 0),
                         "side": "long" if size > 0 else "short",
+                        "entry_value": abs(size * float(ap["position"].get("entryPx") or 0)),
                     }
             return None
         except Exception as e:
